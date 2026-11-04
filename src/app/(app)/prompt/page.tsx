@@ -23,6 +23,7 @@ import {
   X,
   CheckCircle2,
   HelpCircle,
+  Ratio,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -40,7 +41,7 @@ type PromptItem = {
 
 const modelsByType: Record<string, { value: string; label: string }[]> = {
   image: [
-    { value: "nanobanana", label: "🍌 Nano Banana" },
+    { value: "nanobanana", label: "Nano Banana" },
     { value: "midjourney", label: "Midjourney" },
     { value: "firefly", label: "Adobe Firefly" },
     { value: "sdxl", label: "Stable Diffusion XL" },
@@ -55,13 +56,13 @@ const modelsByType: Record<string, { value: string; label: string }[]> = {
     { value: "kling", label: "Kling AI" },
   ],
   vector: [
-    { value: "nanobanana", label: "🍌 Nano Banana" },
+    { value: "nanobanana", label: "Nano Banana" },
     { value: "firefly", label: "Adobe Firefly (Vector)" },
     { value: "midjourney", label: "Midjourney + Vectorize" },
     { value: "sdxl", label: "SDXL + SVG" },
   ],
   photo: [
-    { value: "nanobanana", label: "🍌 Nano Banana" },
+    { value: "nanobanana", label: "Nano Banana" },
     { value: "firefly", label: "Adobe Firefly" },
     { value: "midjourney", label: "Midjourney" },
     { value: "dalle3", label: "DALL·E 3" },
@@ -83,31 +84,31 @@ export const MARKET_ASPECT_RATIO_INFO: Record<
     label: "16:9 Landscape (Widescreen)",
     useCase: "Website Hero Banner, YouTube Thumbnails, Header Web, Digital Ads, Presentasi Bisnis",
     demand: "Sangat Tinggi",
-    badge: "🔥 Paling Dicari untuk Web & Banner",
+    badge: "Paling Dicari untuk Web & Banner",
   },
   "9:16": {
     label: "9:16 Vertical (Mobile Fullscreen)",
     useCase: "TikTok, Instagram Reels, YouTube Shorts, Story, Wallpaper Handphone, Splash Screen",
     demand: "Sangat Tinggi",
-    badge: "🔥 Demand Meledak untuk Mobile & Video",
+    badge: "Demand Tinggi untuk Mobile & Video",
   },
   "3:2": {
     label: "3:2 Standar 35mm (Landscape)",
     useCase: "Standar fotografi komersial Shutterstock & Adobe Stock, editorial, majalah, kemasan",
     demand: "Tinggi",
-    badge: "⭐ Standar Emas Stock Photography",
+    badge: "Standar Emas Stock Photography",
   },
   "2:3": {
     label: "2:3 Vertical (Portrait)",
     useCase: "Poster, cover buku/e-book, flyer vertikal, katalog mode & fashion",
     demand: "Tinggi",
-    badge: "⭐ Populer untuk Poster & Cetak",
+    badge: "Populer untuk Poster & Cetak",
   },
   "1:1": {
     label: "1:1 Square (Persegi)",
     useCase: "Icon Set, Instagram Feed, Marketplace Thumbnail (Tokopedia/Shopee/Amazon), Profil",
     demand: "Tinggi",
-    badge: "⭐ Wajib untuk Icon & E-Commerce",
+    badge: "Standar untuk Icon & E-Commerce",
   },
   "4:3": {
     label: "4:3 Standard Display",
@@ -521,41 +522,6 @@ function PromptGeneratorContent() {
                 </div>
               </div>
 
-              {/* Quick Select Model Pills */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Pilih Cepat Model AI:</span>
-                  {!targetModel && (
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      Pilih model untuk mengaktifkan prompt
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {currentModels.map((m) => {
-                    const isSelected = targetModel === m.value;
-                    const isNano = m.value === "nanobanana";
-                    return (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => setTargetModel(m.value)}
-                        className={cn(
-                          "px-2.5 py-1 rounded-md text-xs font-medium transition-all border cursor-pointer",
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/40"
-                            : isNano
-                            ? "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 hover:border-amber-400 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 font-semibold"
-                            : "bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                        )}
-                      >
-                        {m.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <Separator />
 
               {/* Aspek Rasio & Rekomendasi Pasar */}
@@ -581,13 +547,13 @@ function PromptGeneratorContent() {
                   <SelectTrigger className="h-8 text-xs w-full bg-background">
                     <SelectValue>
                       {selectedRatio === "auto"
-                        ? "✨ Auto (Rekomendasi AI Sesuai Kebutuhan Pasar)"
+                        ? "Auto (Rekomendasi AI Sesuai Kebutuhan Pasar)"
                         : `${selectedRatio} — ${MARKET_ASPECT_RATIO_INFO[selectedRatio]?.badge || selectedRatio}`}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auto">
-                      ✨ Auto (Rekomendasi AI Paling Laku di Pasar)
+                      Auto (Rekomendasi AI Paling Laku di Pasar)
                     </SelectItem>
                     {currentRatios.map((r) => {
                       const info = MARKET_ASPECT_RATIO_INFO[r];
@@ -602,7 +568,7 @@ function PromptGeneratorContent() {
 
                 {/* Quick Chips Rasio Terpopuler Pasar */}
                 <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                  <span className="text-[10px] text-muted-foreground mr-0.5">Rasio Laku:</span>
+                  <span className="text-[10px] text-muted-foreground mr-0.5">Rasio:</span>
                   <button
                     type="button"
                     onClick={() => setSelectedRatio("auto")}
@@ -613,7 +579,7 @@ function PromptGeneratorContent() {
                         : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
                     )}
                   >
-                    ✨ Auto
+                    Auto
                   </button>
                   {currentRatios.slice(0, 4).map((r) => {
                     const isSelected = selectedRatio === r;
@@ -699,7 +665,7 @@ function PromptGeneratorContent() {
                           : "border-input bg-background hover:bg-muted"
                       )}
                     >
-                      🔁 Seamless
+                      Seamless Loop
                     </button>
                     <button
                       type="button"
@@ -711,7 +677,7 @@ function PromptGeneratorContent() {
                           : "border-input bg-background hover:bg-muted"
                       )}
                     >
-                      ✨ Abstrak
+                      Abstrak
                     </button>
                   </div>
                 </div>
@@ -830,7 +796,7 @@ function PromptGeneratorContent() {
                 </Button>
                 {!targetModel && (
                   <p className="text-[11px] text-center text-amber-600 dark:text-amber-400 font-medium">
-                    ⚠️ Tombol generate dinonaktifkan sampai Anda memilih Target Model AI (mis: 🍌 Nano Banana)
+                    Pilih Target Model AI (mis: Nano Banana) pada dropdown di atas untuk mengaktifkan tombol generate.
                   </p>
                 )}
               </div>
@@ -870,10 +836,10 @@ function PromptGeneratorContent() {
                             <span className="text-sm font-semibold">Prompt #{i + 1}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge variant="outline" className="text-xs font-semibold bg-primary/5 border-primary/30 text-primary">
-                                📐 {prompt.aspectRatio}
+                                {prompt.aspectRatio}
                               </Badge>
                               <Badge variant="secondary" className="text-xs font-medium">
-                                {targetModel === "nanobanana" ? "🍌 Nano Banana" : selectedModelLabel || targetModel}
+                                {targetModel === "nanobanana" ? "Nano Banana" : selectedModelLabel || targetModel}
                               </Badge>
                             </div>
                           </div>
@@ -882,7 +848,7 @@ function PromptGeneratorContent() {
                           {/* Rekomendasi Aspek Rasio Pasar Callout */}
                           <div className="flex items-start gap-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 p-2.5 text-xs">
                             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white font-bold text-[11px] shadow-xs">
-                              📐
+                              <Ratio className="h-3.5 w-3.5" />
                             </div>
                             <div className="space-y-1 min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap justify-between">
@@ -904,7 +870,7 @@ function PromptGeneratorContent() {
                               </p>
                               {targetModel === "nanobanana" && (
                                 <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium pt-0.5 border-t border-blue-200/50 dark:border-blue-900/40 mt-1">
-                                  🍌 <strong>Tips Nano Banana:</strong> Set aspect ratio ke <strong>{prompt.aspectRatio}</strong> pada model Nano Banana Anda sebelum generate gambar.
+                                  <strong>Tips Nano Banana:</strong> Set aspect ratio ke <strong>{prompt.aspectRatio}</strong> pada model Nano Banana Anda sebelum generate gambar.
                                 </p>
                               )}
                             </div>
@@ -997,7 +963,7 @@ function PromptGeneratorContent() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {!targetModel
-                      ? "Pilih Target Model AI (mis: 🍌 Nano Banana) lalu klik Generate."
+                      ? "Pilih Target Model AI (mis: Nano Banana) lalu klik Generate."
                       : `Klik tombol "Generate Prompt (${selectedModelLabel})" untuk memulai.`}
                   </p>
                 </CardContent>
