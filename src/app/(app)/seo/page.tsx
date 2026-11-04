@@ -27,6 +27,7 @@ import {
   X,
   CheckCheck,
   ImageIcon,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { saveSeoSession, type SeoEntry } from "@/lib/history";
@@ -151,9 +152,15 @@ function SeoResultView({ result, rules, onCopy }: {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-1 border-t border-amber-200/60 dark:border-amber-900/30 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
-            <span>Kepatuhan Aman: Judul & Keyword 100% bebas nama artis, tokoh nyata, merek dagang, dan klaim berita.</span>
+          <div className="flex flex-col gap-1.5 pt-1 border-t border-amber-200/60 dark:border-amber-900/30 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
+              <span>Kepatuhan Aman: Judul & Keyword 100% bebas nama artis, tokoh nyata, dan merek dagang.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>Anti-Newsworthy Verified: Judul dikunci sebagai konsep komersial/kreatif (bebas klaim berita/editorial aktual).</span>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -348,3 +348,4 @@ export function resetWeeklyPlanWithCurrentTrends(weekId?: string): WeeklyPlan {
   saveWeeklyPlan(plan);
   return plan;
 }
+
