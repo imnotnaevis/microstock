@@ -77,6 +77,8 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
+const CACHE_KEY = "microstock_cached_trend";
+
 export default function DashboardPage() {
   const [platform, setPlatform] = useState("all");
   const [assetType, setAssetType] = useState("all");
@@ -85,6 +87,22 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noKeys, setNoKeys] = useState(false);
+
+  // Restore cached trend from localStorage on mount (never re-generate automatically)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.data) {
+          setData(parsed.data);
+          if (parsed.platform) setPlatform(parsed.platform);
+          if (parsed.assetType) setAssetType(parsed.assetType);
+          if (parsed.region) setRegion(parsed.region);
+        }
+      }
+    } catch {}
+  }, []);
 
   const fetchTrends = useCallback(async () => {
     const settings = loadSettings();
@@ -112,6 +130,18 @@ export default function DashboardPage() {
         throw new Error(json.error || "Gagal memuat data");
       }
       setData(json);
+      try {
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            data: json,
+            platform,
+            assetType,
+            region,
+            savedAt: new Date().toISOString(),
+          })
+        );
+      } catch {}
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -119,11 +149,7 @@ export default function DashboardPage() {
     }
   }, [platform, assetType, region]);
 
-  useEffect(() => {
-    fetchTrends();
-  }, [fetchTrends]);
-
-  const isEmpty = !isLoading && !data && !error;
+  const isEmpty = !isLoading && !data && !error && !noKeys;
 
   return (
     <div className="flex flex-col flex-1">
@@ -133,13 +159,19 @@ export default function DashboardPage() {
         actions={
           <div className="flex items-center gap-2">
             {data && (
-              <span className="text-xs text-muted-foreground">
-                Diperbarui: {data.updatedAt}
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                Tersimpan &middot; Diperbarui: {data.updatedAt}
               </span>
             )}
-            <Button variant="outline" size="sm" onClick={fetchTrends} disabled={isLoading}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
-              {isLoading ? "Memuat..." : "Refresh"}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchTrends}
+              disabled={isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              {isLoading ? "Menganalisis..." : data ? "Generate Ulang" : "Generate Tren"}
             </Button>
           </div>
         }
@@ -147,7 +179,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 p-6 space-y-6">
         {/* Filters */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Select value={platform} onValueChange={(v) => v && setPlatform(v)}
             items={{ all: "Semua Platform", adobe: "Adobe Stock", shutterstock: "Shutterstock", vecteezy: "Vecteezy" }}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -181,6 +213,24 @@ export default function DashboardPage() {
               <SelectItem value="as">Asia</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            onClick={fetchTrends}
+            disabled={isLoading}
+            className="gap-2 shadow-sm font-medium"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Menganalisis...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {data ? "Update Tren" : "Generate Tren"}
+              </>
+            )}
+          </Button>
         </div>
 
         {/* No keys state */}
@@ -195,6 +245,25 @@ export default function DashboardPage() {
           <div className="grid">
             <ErrorState message={error} onRetry={fetchTrends} />
           </div>
+        )}
+
+        {/* Empty state before first generation */}
+        {isEmpty && (
+          <Card className="border-dashed border-2">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <p className="font-semibold text-base">Belum Ada Analisis Tren yang Disimpan</p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Pilih filter di atas, lalu klik <strong>Generate Tren</strong> untuk menganalisis kata kunci dan kategori microstock terkini. Hasilnya akan otomatis tersimpan di sini dan tidak akan memuat ulang saat berpindah menu.
+              </p>
+              <Button onClick={fetchTrends} disabled={isLoading} className="gap-2 mt-2">
+                <Sparkles className="h-4 w-4" />
+                Generate Tren Sekarang
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* AI Summary */}
