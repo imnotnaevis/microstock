@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   Settings,
   Sparkles,
+  CalendarCheck,
+  ArrowRight,
 } from "lucide-react";
 import {
   ChartContainer,
@@ -28,6 +30,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { loadSettings } from "@/lib/settings";
+import { loadWeeklyPlan, getTodayDayIndex, type WeeklyPlan } from "@/lib/weekly-plan";
 import type { TrendData } from "@/app/api/trend/route";
 
 const chartConfig = {
@@ -87,6 +90,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noKeys, setNoKeys] = useState(false);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
+
+  // Load weekly plan on mount
+  useEffect(() => {
+    setWeeklyPlan(loadWeeklyPlan());
+  }, []);
 
   // Restore cached trend from localStorage on mount (never re-generate automatically)
   useEffect(() => {
@@ -262,6 +271,50 @@ export default function DashboardPage() {
                 <Sparkles className="h-4 w-4" />
                 Generate Tren Sekarang
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Weekly Target Action Banner */}
+        {weeklyPlan && (
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-background to-amber-500/5 shadow-xs">
+            <CardContent className="py-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <CalendarCheck className="h-5 w-5" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-foreground">
+                      Target Hari Ini ({weeklyPlan.tasks[getTodayDayIndex()]?.dayName}):
+                    </span>
+                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-primary/30 text-primary font-medium">
+                      {weeklyPlan.tasks[getTodayDayIndex()]?.phase}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground truncate max-w-xl">
+                    {weeklyPlan.tasks[getTodayDayIndex()]?.title} — Target: <strong className="text-foreground">{weeklyPlan.tasks[getTodayDayIndex()]?.targetOutput}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                <div className="text-right hidden md:block">
+                  <div className="font-semibold text-foreground">
+                    {weeklyPlan.tasks.filter((t) => t.completed).length}/7 Hari Selesai
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {Math.round((weeklyPlan.tasks.filter((t) => t.completed).length / 7) * 100)}% Target Tercapai
+                  </div>
+                </div>
+                <Link
+                  href="/weekly-target"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs font-semibold bg-background shadow-xs")}
+                >
+                  <span>Buka Jadwal 7 Hari</span>
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </Link>
+              </div>
             </CardContent>
           </Card>
         )}

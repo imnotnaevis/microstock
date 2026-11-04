@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Calendar,
+  CalendarCheck,
   Camera,
   Video,
   Wand2,
@@ -49,6 +50,7 @@ const navItems: NavGroup[] = [
     group: "Riset & Analisis",
     items: [
       { href: "/dashboard", label: "Dasbor Tren", icon: BarChart3, badge: "Live" },
+      { href: "/weekly-target", label: "Target Mingguan", icon: CalendarCheck, badge: "7 Hari" },
       { href: "/calendar", label: "Kalender Musiman", icon: Calendar },
     ],
   },
