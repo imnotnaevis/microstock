@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { saveSeoSession, type SeoEntry } from "@/lib/history";
 import { loadSettings } from "@/lib/settings";
+import { saveOrUpdateSeoAsset, createThumbnail } from "@/lib/library";
 
 const platformRules = {
   adobe: { maxKeywords: 49, maxTitle: 200, maxDesc: 200, platform: "Adobe Stock" },
@@ -343,7 +344,32 @@ function SEOGeneratorContent() {
       if (!res.ok) throw new Error(data.error || "Generate gagal");
       setResult(data);
       saveSeoSession({ platform, assetType, keyword, items: [{ fileName: singleFile!.name, result: data }] });
-      toast.success("SEO metadata berhasil di-generate!");
+
+      // Auto-save ke Koleksi Aset
+      try {
+        let thumb = "";
+        if (singleFile) {
+          thumb = await createThumbnail(singleFile);
+        } else if (singlePreview) {
+          thumb = await createThumbnail(singlePreview);
+        }
+        saveOrUpdateSeoAsset({
+          title: data.title,
+          type: assetType,
+          category: data.adobeStockCompliance?.category || (keyword.trim() || "Photos"),
+          thumbnail: thumb,
+          status: "in_review",
+          seoData: {
+            title: data.title,
+            description: data.description,
+            keywords: data.keywords,
+          },
+          adobeStockCompliance: data.adobeStockCompliance,
+        });
+        toast.success("SEO berhasil & aset otomatis masuk ke Koleksi Aset!");
+      } catch (err) {
+        toast.success("SEO metadata berhasil di-generate!");
+      }
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -426,6 +452,25 @@ function SEOGeneratorContent() {
         if (!res.ok) throw new Error(data.error || "Generate gagal");
         setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "done", result: data } : i));
         completed.push({ fileName: item.file.name, result: data });
+
+        // Auto-save tiap aset bulk ke Koleksi Aset
+        try {
+          const thumb = await createThumbnail(item.file);
+          saveOrUpdateSeoAsset({
+            title: data.title,
+            type: assetType,
+            category: data.adobeStockCompliance?.category || (keyword.trim() || "Photos"),
+            thumbnail: thumb,
+            status: "in_review",
+            seoData: {
+              title: data.title,
+              description: data.description,
+              keywords: data.keywords,
+            },
+            adobeStockCompliance: data.adobeStockCompliance,
+          });
+        } catch {}
+
         successCount++;
       } catch (err) {
         setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error", error: (err as Error).message } : i));
