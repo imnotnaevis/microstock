@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys, isRateLimitError } from "@/lib/gemini";
 
 const platformLimits: Record<string, { name: string; maxTitle: number; maxDesc: number; maxKeywords: number }> = {
   adobe:       { name: "Adobe Stock",   maxTitle: 200, maxDesc: 200, maxKeywords: 49 },
@@ -152,6 +152,13 @@ export async function POST(req: Request) {
     const parsed = JSON.parse(extractJson(rawText ?? ""));
     return NextResponse.json(sanitizeSeo(parsed, platformLimits[platform] ?? platformLimits.adobe));
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const isQuota = isRateLimitError(err);
+    const message = isQuota
+      ? "Batas kuota Gemini API tercapai (Rate Limit 429). Kuota permintaan per menit (RPM) telah penuh. Silakan tunggu 1-2 menit atau tambahkan API Key cadangan di menu Settings."
+      : (err as Error).message;
+    return NextResponse.json(
+      { error: message, isQuotaExhausted: isQuota, code: isQuota ? "QUOTA_EXHAUSTED" : "SERVER_ERROR" },
+      { status: isQuota ? 429 : 500 }
+    );
   }
 }

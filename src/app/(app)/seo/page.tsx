@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,8 @@ import { toast } from "sonner";
 import { saveSeoSession, type SeoEntry } from "@/lib/history";
 import { loadSettings } from "@/lib/settings";
 import { saveOrUpdateSeoAsset, createThumbnail } from "@/lib/library";
+import { useGenerator, type SeoResult, type BulkItem } from "@/context/generator-context";
+import { QuotaAlert } from "@/components/ui/quota-alert";
 
 const platformRules = {
   adobe: { maxKeywords: 49, maxTitle: 200, maxDesc: 200, platform: "Adobe Stock" },
@@ -62,27 +64,7 @@ const mockSeoResult = {
   },
 };
 
-type SeoResult = {
-  title: string;
-  description: string;
-  keywords: string[];
-  adobeStockCompliance?: {
-    isAiGenerated?: boolean;
-    hasFictionalPeopleOrProperty?: boolean;
-    recommendedCheckboxes?: string[];
-    category?: string;
-    complianceNotes?: string;
-  };
-};
 
-type BulkItem = {
-  id: string;
-  file: File;
-  preview: string;
-  status: "idle" | "generating" | "done" | "error";
-  result?: SeoResult;
-  error?: string;
-};
 
 function ValidationIcon({ ok }: { ok: boolean }) {
   return ok ? (
@@ -260,52 +242,42 @@ function SEOGeneratorContent() {
   const searchParams = useSearchParams();
   const initialKeyword = searchParams.get("keyword") || "";
 
-  const [platform, setPlatform] = useState("adobe");
-  const [assetType, setAssetType] = useState("photo");
-  const [keyword, setKeyword] = useState(initialKeyword);
+  const {
+    seoPlatform: platform,
+    setSeoPlatform: setPlatform,
+    seoAssetType: assetType,
+    setSeoAssetType: setAssetType,
+    seoKeyword: keyword,
+    setSeoKeyword: setKeyword,
+    seoSinglePreview: singlePreview,
+    seoSingleFileName: singleFileName,
+    setSeoSingleAsset,
+    seoResult: result,
+    setSeoResult: setResult,
+    isSeoGenerating: isGenerating,
+    seoAnalyzeStatus: analyzeStatus,
+    seoError,
+    isSeoQuotaError,
+    clearSeoError,
+    startSingleSeoGeneration,
+    bulkItems,
+    setBulkItems,
+    isBulkGenerating,
+    startBulkSeoGeneration,
+  } = useGenerator();
 
-  // Single mode
   const [singleFile, setSingleFile] = useState<File | null>(null);
-  const [singlePreview, setSinglePreview] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [analyzeStatus, setAnalyzeStatus] = useState<string | null>(null);
-  const [result, setResult] = useState<SeoResult | null>(null);
   const singleInputRef = useRef<HTMLInputElement>(null);
-
-  // Bulk mode
-  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
-  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
   const rules = platformRules[platform as keyof typeof platformRules];
 
-  // ponytail: Vercel serverless functions cap request bodies around 4.5MB, so
-  // large images can't go through /api/seo as base64 — upload straight to
-  // Gemini's Files API from the browser instead, same as videos already did.
-  async function uploadFileToGemini(file: File, apiKey: string, onStatus?: (s: string) => void): Promise<string> {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey });
-    onStatus?.("Mengupload aset ke Gemini...");
-    let uploaded;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "application/octet-stream" } });
-        break;
-      } catch (err) {
-        if (attempt === 1) throw err;
-        await new Promise((r) => setTimeout(r, 2000));
-      }
+  // Sinkronkan initial keyword jika ada dari query params
+  useEffect(() => {
+    if (initialKeyword && !keyword) {
+      setKeyword(initialKeyword);
     }
-    const name = uploaded!.name!;
-    onStatus?.("Menunggu Gemini memproses aset...");
-    for (let i = 0; i < 40; i++) {
-      const info = await ai.files.get({ name });
-      if (info.state === "ACTIVE") return info.uri!;
-      if (info.state === "FAILED") throw new Error("Gemini gagal memproses aset");
-      await new Promise((r) => setTimeout(r, 3000));
-    }
-    throw new Error("Timeout menunggu Gemini memproses aset (120s)");
-  }
+  }, [initialKeyword, keyword, setKeyword]);
 
   function handleCopy(text: string) {
     navigator.clipboard.writeText(text);
@@ -316,73 +288,23 @@ function SEOGeneratorContent() {
     const file = e.target.files?.[0];
     if (!file) return;
     setSingleFile(file);
-    setResult(null);
     const reader = new FileReader();
-    reader.onload = (ev) => setSinglePreview(ev.target?.result as string);
+    reader.onload = (ev) => {
+      setSeoSingleAsset({ preview: ev.target?.result as string, fileName: file.name });
+    };
     reader.readAsDataURL(file);
   }
 
   async function handleGenerate() {
-    if (!singleFile) return;
-    const { geminiKeys, geminiModel } = loadSettings();
-    setIsGenerating(true);
-    try {
-      let body: Record<string, unknown>;
-      if (singleFile.size > 3 * 1024 * 1024 && geminiKeys?.[0]) {
-        const fileUri = await uploadFileToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
-        // ponytail: an uploaded file is only readable by the key that uploaded it, so don't rotate keys here.
-        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: [geminiKeys[0]] };
+    if (!singleFile) {
+      if (singlePreview) {
+        toast.info("Aset sebelumnya masih tersimpan. Untuk generate ulang, silakan klik 'Ganti / Upload Aset' di bawah preview.");
       } else {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(singleFile!);
-        });
-        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys || [] };
+        toast.error("Silakan pilih file aset terlebih dahulu!");
       }
-      setAnalyzeStatus("Generating SEO...");
-      const res = await fetch("/api/seo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Generate gagal");
-      setResult(data);
-      saveSeoSession({ platform, assetType, keyword, items: [{ fileName: singleFile!.name, result: data }] });
-
-      // Auto-save ke Koleksi Aset
-      try {
-        let thumb = "";
-        if (singleFile) {
-          thumb = await createThumbnail(singleFile);
-        } else if (singlePreview) {
-          thumb = await createThumbnail(singlePreview);
-        }
-        saveOrUpdateSeoAsset({
-          title: data.title,
-          type: assetType,
-          category: data.adobeStockCompliance?.category || (keyword.trim() || "Photos"),
-          thumbnail: thumb,
-          status: "in_review",
-          seoData: {
-            title: data.title,
-            description: data.description,
-            keywords: data.keywords,
-          },
-          adobeStockCompliance: data.adobeStockCompliance,
-        });
-        toast.success("SEO berhasil & aset otomatis masuk ke Koleksi Aset!");
-      } catch (err) {
-        toast.success("SEO metadata berhasil di-generate!");
-      }
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setIsGenerating(false);
-      setAnalyzeStatus(null);
+      return;
     }
+    await startSingleSeoGeneration(singleFile);
   }
 
   function handleExportSingle(format: "csv" | "json") {
@@ -423,75 +345,7 @@ function SEOGeneratorContent() {
   }
 
   async function handleBulkGenerate() {
-    const pending = bulkItems.filter((i) => i.status !== "done");
-    if (!pending.length) return;
-    const { geminiKeys, geminiModel } = loadSettings();
-    setIsBulkGenerating(true);
-    const completed: SeoEntry[] = [];
-    let successCount = 0;
-    for (const [index, item] of pending.entries()) {
-      if (index > 0) {
-        // Cooldown antar file (terutama video) untuk menghindari rate limit & spike demand 503
-        await new Promise((r) => setTimeout(r, 2500));
-      }
-      setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
-      try {
-        let body: Record<string, unknown>;
-        if (item.file.size > 3 * 1024 * 1024 && geminiKeys?.[0]) {
-          const uploadKey = geminiKeys[index % geminiKeys.length];
-          const fileUri = await uploadFileToGemini(item.file, uploadKey);
-          body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: [uploadKey] };
-        } else {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(item.file);
-          });
-          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys || [] };
-        }
-        const res = await fetch("/api/seo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Generate gagal");
-        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "done", result: data } : i));
-        completed.push({ fileName: item.file.name, result: data });
-
-        // Auto-save tiap aset bulk ke Koleksi Aset
-        try {
-          const thumb = await createThumbnail(item.file);
-          saveOrUpdateSeoAsset({
-            title: data.title,
-            type: assetType,
-            category: data.adobeStockCompliance?.category || (keyword.trim() || "Photos"),
-            thumbnail: thumb,
-            status: "in_review",
-            seoData: {
-              title: data.title,
-              description: data.description,
-              keywords: data.keywords,
-            },
-            adobeStockCompliance: data.adobeStockCompliance,
-          });
-        } catch {}
-
-        successCount++;
-      } catch (err) {
-        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error", error: (err as Error).message } : i));
-      }
-    }
-    if (completed.length) saveSeoSession({ platform, assetType, keyword, items: completed });
-    setIsBulkGenerating(false);
-    if (successCount === pending.length) {
-      toast.success(`Semua ${successCount} aset berhasil di-generate SEO-nya!`);
-    } else if (successCount > 0) {
-      toast.warning(`${successCount} dari ${pending.length} aset berhasil. File yang gagal bisa di-generate ulang.`);
-    } else {
-      toast.error("Gagal men-generate aset. Silakan periksa detail error pada masing-masing item.");
-    }
+    await startBulkSeoGeneration();
   }
 
   function handleBulkExport() {
@@ -606,31 +460,48 @@ function SEOGeneratorContent() {
                     />
 
                     {singlePreview ? (
-                      <div className="relative rounded-lg overflow-hidden border bg-muted">
-                        <img
-                          src={singlePreview}
-                          alt="Preview"
-                          className="w-full h-48 object-contain"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute top-2 right-2 h-7 w-7 p-0 bg-background/80 hover:bg-background"
-                          onClick={() => { setSingleFile(null); setSinglePreview(null); setResult(null); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <div className="absolute bottom-2 left-2">
-                          <Badge className="text-xs bg-background/90 text-foreground border">
-                            {singleFile?.name}
-                          </Badge>
+                      <div className="space-y-2">
+                        <div className="relative rounded-lg overflow-hidden border bg-muted">
+                          <img
+                            src={singlePreview}
+                            alt="Preview"
+                            className="w-full h-48 object-contain"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-7 w-7 p-0 bg-background/80 hover:bg-background cursor-pointer"
+                            onClick={() => {
+                              setSingleFile(null);
+                              setSeoSingleAsset({ preview: null, fileName: null });
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <div className="absolute bottom-2 left-2">
+                            <Badge className="text-xs bg-background/90 text-foreground border">
+                              {singleFile?.name || singleFileName || "Aset Terpilih"}
+                            </Badge>
+                          </div>
                         </div>
+                        {!singleFile && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs"
+                            onClick={() => singleInputRef.current?.click()}
+                          >
+                            <Upload className="h-3.5 w-3.5 mr-1" />
+                            Ganti / Upload File Baru
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => singleInputRef.current?.click()}
-                        className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-muted-foreground/25 rounded-lg hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                        className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-muted-foreground/25 rounded-lg hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                       >
                         <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                         <span className="text-sm font-medium text-muted-foreground">Klik untuk upload aset</span>
@@ -641,7 +512,7 @@ function SEOGeneratorContent() {
                     <Button
                       className="w-full"
                       onClick={handleGenerate}
-                      disabled={isGenerating || !singleFile}
+                      disabled={isGenerating || (!singleFile && !singlePreview)}
                     >
                       {isGenerating ? (
                         <>
@@ -670,7 +541,34 @@ function SEOGeneratorContent() {
                 </Card>
               </div>
 
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3 space-y-4">
+                {isSeoQuotaError && (
+                  <QuotaAlert
+                    message={seoError || undefined}
+                    onRetry={() => { if (singleFile) handleGenerate(); }}
+                    onDismiss={clearSeoError}
+                  />
+                )}
+
+                {seoError && !isSeoQuotaError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 p-3 text-xs text-red-800 dark:text-red-300 flex items-start justify-between gap-2 shadow-xs">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold">Gagal Generate SEO:</span> {seoError}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-red-600 hover:text-red-800 cursor-pointer"
+                      onClick={clearSeoError}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
                 {result ? (
                   <SeoResultView result={result} rules={rules} onCopy={handleCopy} />
                 ) : (
@@ -689,6 +587,13 @@ function SEOGeneratorContent() {
           {/* BULK TAB */}
           <TabsContent value="bulk">
             <div className="space-y-4">
+              {isSeoQuotaError && (
+                <QuotaAlert
+                  message={seoError || undefined}
+                  onRetry={handleBulkGenerate}
+                  onDismiss={clearSeoError}
+                />
+              )}
               {/* Upload area */}
               <input
                 ref={bulkInputRef}

@@ -13,6 +13,17 @@ export const GEMINI_MODELS = [
 
 export type GeminiModel = typeof GEMINI_MODELS[number]["value"];
 
+export class GeminiQuotaError extends Error {
+  readonly code = "QUOTA_EXHAUSTED";
+  constructor(message?: string) {
+    super(
+      message ||
+        "Batas kuota Gemini API tercapai (Rate Limit 429). Kuota permintaan per menit (RPM) telah penuh. Silakan tunggu 1-2 menit atau tambahkan API Key cadangan di Settings."
+    );
+    this.name = "GeminiQuotaError";
+  }
+}
+
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -26,13 +37,16 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
-function isRateLimitError(err: unknown): boolean {
+export function isRateLimitError(err: unknown): boolean {
+  if (err instanceof GeminiQuotaError) return true;
   const msg = getErrorMessage(err).toLowerCase();
   return (
     msg.includes("429") ||
     msg.includes("quota") ||
     msg.includes("rate limit") ||
-    msg.includes("resource_exhausted")
+    msg.includes("resource_exhausted") ||
+    msg.includes("too many requests") ||
+    msg.includes("quota_exhausted")
   );
 }
 
@@ -127,9 +141,11 @@ export async function withGemini<T>(
   }
 
   let lastError: unknown;
+  let allKeysRateLimitedModelCount = 0;
 
   for (const model of models) {
     let modelUnavailable = false;
+    let rateLimitCountThisModel = 0;
 
     for (const key of activeKeys) {
       try {
@@ -140,6 +156,7 @@ export async function withGemini<T>(
         lastError = err;
 
         if (isRateLimitError(err)) {
+          rateLimitCountThisModel++;
           continue; // coba API key berikutnya
         }
         if (isModelUnavailableError(err)) {
@@ -152,9 +169,23 @@ export async function withGemini<T>(
       }
     }
 
+    // Jika seluruh API key yang dimiliki user terkena rate limit pada model ini
+    if (rateLimitCountThisModel >= activeKeys.length && activeKeys.length > 0) {
+      allKeysRateLimitedModelCount++;
+      // Jangan looping ke 5-7 model berikutnya secara berlebihan jika semua key sudah kena quota/rate limit.
+      // Cukup coba maksimal 2 model (misal beda tier), jika keduanya kena limit, langsung hentikan dan throw Quota Error.
+      if (allKeysRateLimitedModelCount >= 2 || models.length === 1) {
+        throw new GeminiQuotaError();
+      }
+    }
+
     if (!modelUnavailable && lastError) {
       lastError = new Error(`Model ${model} kena batas limit: ${getErrorMessage(lastError)}`);
     }
+  }
+
+  if (isRateLimitError(lastError)) {
+    throw new GeminiQuotaError();
   }
 
   const errorMsg = (lastError as Error)?.message || getErrorMessage(lastError);

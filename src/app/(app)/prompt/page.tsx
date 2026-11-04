@@ -24,20 +24,13 @@ import {
   CheckCircle2,
   HelpCircle,
   Ratio,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { loadSettings } from "@/lib/settings";
-import { savePromptSession } from "@/lib/history";
-
-type PromptItem = {
-  id: string;
-  text: string;
-  negative: string;
-  aspectRatio: string;
-  aspectRatioReason?: string;
-};
+import { useGenerator, type PromptItem } from "@/context/generator-context";
+import { QuotaAlert } from "@/components/ui/quota-alert";
 
 const modelsByType: Record<string, { value: string; label: string }[]> = {
   image: [
@@ -140,26 +133,21 @@ function PromptGeneratorContent() {
   const initialReason = searchParams.get("reason") || "";
   const initialPlatform = searchParams.get("platform") || "";
 
-  const [assetType, setAssetType] = useState(
-    ["image", "photo", "vector", "video"].includes(initialType) ? initialType : "image"
-  );
-  // Target model wajib dipilih manual oleh pengguna, default kosong
-  const [targetModel, setTargetModel] = useState("");
-  const [selectedRatio, setSelectedRatio] = useState("auto");
+  const {
+    promptForm,
+    updatePromptForm,
+    prompts,
+    setPrompts,
+    isPromptGenerating,
+    promptError,
+    isPromptQuotaError,
+    clearPromptError,
+    startPromptGeneration,
+    savedPrompts,
+    savePromptId,
+  } = useGenerator();
+
   const [showRatioGuide, setShowRatioGuide] = useState(false);
-  const [keyword, setKeyword] = useState(initialKeyword || "Animal");
-  const [themes, setThemes] = useState(initialThemes);
-  const [style, setStyle] = useState(initialStyle);
-  const [brief, setBrief] = useState(
-    initialReason
-      ? `Tren Microstock (${initialPlatform ? initialPlatform + " - " : ""}${initialReason})`
-      : ""
-  );
-  const [batchCount, setBatchCount] = useState("3");
-  const [temaUtama, setTemaUtama] = useState(initialKeyword);
-  const [seamless, setSeamless] = useState(false);
-  const [abstrak, setAbstrak] = useState(false);
-  const [iconSet, setIconSet] = useState(false);
   const [lastContext, setLastContext] = useState<{
     style: string;
     themes: string;
@@ -168,30 +156,51 @@ function PromptGeneratorContent() {
     source: string;
   } | null>(null);
 
+  const {
+    keyword,
+    temaUtama,
+    targetModel,
+    assetType,
+    themes,
+    style,
+    brief,
+    batchCount,
+    selectedRatio,
+    seamless,
+    abstrak,
+    iconSet,
+    contextPreview,
+  } = promptForm;
+
+  const setAssetType = (v: string) => updatePromptForm({ assetType: v });
+  const setTargetModel = (v: string) => updatePromptForm({ targetModel: v });
+  const setSelectedRatio = (v: string) => updatePromptForm({ selectedRatio: v });
+  const setKeyword = (v: string) => updatePromptForm({ keyword: v });
+  const setThemes = (v: string) => updatePromptForm({ themes: v });
+  const setStyle = (v: string) => updatePromptForm({ style: v });
+  const setBrief = (v: string) => updatePromptForm({ brief: v });
+  const setBatchCount = (v: string) => updatePromptForm({ batchCount: v });
+  const setTemaUtama = (v: string) => updatePromptForm({ temaUtama: v });
+  const setSeamless = (v: boolean) => updatePromptForm({ seamless: v });
+  const setAbstrak = (v: boolean) => updatePromptForm({ abstrak: v });
+  const setIconSet = (v: boolean) => updatePromptForm({ iconSet: v });
+  const setContextPreview = (v: string | null) => updatePromptForm({ contextPreview: v });
+
   const videoModeOn = assetType === "video" && (seamless || abstrak);
   const temaUtamaOn = !!temaUtama.trim();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [prompts, setPrompts] = useState<PromptItem[]>([]);
-  const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
-  const [contextPreview, setContextPreview] = useState<string | null>(null);
+  const isGenerating = isPromptGenerating;
 
   // Otomatis sinkronkan parameter tren saat navigasi dari dashboard
   useEffect(() => {
     if (initialKeyword) {
-      setTemaUtama(initialKeyword);
-      setKeyword(initialKeyword);
-    }
-    if (initialType && ["image", "photo", "vector", "video"].includes(initialType)) {
-      setAssetType(initialType);
-    }
-    if (initialReason) {
-      setBrief(`Tren Microstock (${initialPlatform ? initialPlatform + " - " : ""}${initialReason})`);
-    }
-    if (initialThemes) {
-      setThemes(initialThemes);
-    }
-    if (initialStyle) {
-      setStyle(initialStyle);
+      updatePromptForm({
+        temaUtama: initialKeyword,
+        keyword: initialKeyword,
+        assetType: initialType && ["image", "photo", "vector", "video"].includes(initialType) ? initialType : assetType,
+        brief: initialReason ? `Tren Microstock (${initialPlatform ? initialPlatform + " - " : ""}${initialReason})` : brief,
+        themes: initialThemes || themes,
+        style: initialStyle || style,
+      });
     }
   }, [initialKeyword, initialReason, initialPlatform, initialType, initialThemes, initialStyle]);
 
@@ -200,10 +209,12 @@ function PromptGeneratorContent() {
     if (stored) {
       try {
         const ctx = JSON.parse(stored);
-        if (ctx.style) setStyle(ctx.style);
-        if (ctx.themes) setThemes(ctx.themes);
-        if (ctx.assetType) setAssetType(ctx.assetType);
-        if (ctx.previewSrc) setContextPreview(ctx.previewSrc);
+        updatePromptForm({
+          style: ctx.style || style,
+          themes: ctx.themes || themes,
+          assetType: ctx.assetType || assetType,
+          contextPreview: ctx.previewSrc || contextPreview,
+        });
       } catch {}
       sessionStorage.removeItem("promptContext");
     } else {
@@ -218,68 +229,18 @@ function PromptGeneratorContent() {
 
   function handleUseLastContext() {
     if (!lastContext) return;
-    if (lastContext.style) setStyle(lastContext.style);
-    if (lastContext.themes) setThemes(lastContext.themes);
-    if (lastContext.assetType) setAssetType(lastContext.assetType);
-    if (lastContext.previewSrc) setContextPreview(lastContext.previewSrc);
+    updatePromptForm({
+      style: lastContext.style || style,
+      themes: lastContext.themes || themes,
+      assetType: lastContext.assetType || assetType,
+      contextPreview: lastContext.previewSrc || contextPreview,
+    });
     setLastContext(null);
     toast.success("Hasil analisis diterapkan!");
   }
 
   async function handleGenerate() {
-    if (!targetModel) {
-      toast.error("Silakan pilih Target Model AI terlebih dahulu!");
-      return;
-    }
-
-    const { geminiKeys, geminiModel } = loadSettings();
-
-    setIsGenerating(true);
-    try {
-      const res = await fetch("/api/prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          keyword: temaUtama.trim() || keyword,
-          themes,
-          style,
-          brief,
-          assetType,
-          targetModel,
-          count: batchCount,
-          model: geminiModel,
-          keys: geminiKeys || [],
-          seamless,
-          abstrak,
-          iconSet,
-          selectedRatio,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Generate gagal");
-      setPrompts(data);
-      const historyKeyword =
-        temaUtama.trim() ||
-        (videoModeOn ? [seamless && "Seamless", abstrak && "Abstrak"].filter(Boolean).join(" + ") : keyword);
-      savePromptSession({
-        keyword: historyKeyword,
-        assetType,
-        targetModel,
-        themes,
-        style,
-        prompts: data.map((p: PromptItem) => ({
-          text: p.text,
-          negative: p.negative,
-          aspectRatio: p.aspectRatio,
-          aspectRatioReason: p.aspectRatioReason,
-        })),
-      });
-      toast.success(`${data.length} prompt berhasil di-generate!`);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setIsGenerating(false);
-    }
+    await startPromptGeneration();
   }
 
   function handleCopy(text: string, label = "Prompt disalin!") {
@@ -288,7 +249,7 @@ function PromptGeneratorContent() {
   }
 
   function handleSave(id: string) {
-    setSavedPrompts((prev) => [...prev, id]);
+    savePromptId(id);
     toast.success("Prompt disimpan ke library!");
   }
 
@@ -805,6 +766,33 @@ function PromptGeneratorContent() {
 
           {/* Results */}
           <div className="lg:col-span-3 space-y-4">
+            {isPromptQuotaError && (
+              <QuotaAlert
+                message={promptError || undefined}
+                onRetry={handleGenerate}
+                onDismiss={clearPromptError}
+              />
+            )}
+
+            {promptError && !isPromptQuotaError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 p-3 text-xs text-red-800 dark:text-red-300 flex items-start justify-between gap-2 shadow-xs">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Gagal Generate Prompt:</span> {promptError}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-red-600 hover:text-red-800 cursor-pointer"
+                  onClick={clearPromptError}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+
             {prompts.length > 0 ? (
               <>
                 <div className="flex items-center justify-between">

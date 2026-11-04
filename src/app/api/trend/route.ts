@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys, isRateLimitError } from "@/lib/gemini";
 
 export type TrendData = {
   summary: string;
@@ -146,7 +146,15 @@ Kembalikan HANYA objek JSON valid (tanpa teks lain di luar JSON):
     const parsed: TrendData = JSON.parse(extractJson(rawText ?? ""));
     return NextResponse.json(parsed);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Terjadi kesalahan";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const isQuota = isRateLimitError(err);
+    const message = isQuota
+      ? "Batas kuota Gemini API tercapai (Rate Limit 429). Kuota permintaan per menit (RPM) telah penuh. Silakan tunggu 1-2 menit atau tambahkan API Key cadangan di menu Settings."
+      : err instanceof Error
+      ? err.message
+      : "Terjadi kesalahan";
+    return NextResponse.json(
+      { error: message, isQuotaExhausted: isQuota, code: isQuota ? "QUOTA_EXHAUSTED" : "SERVER_ERROR" },
+      { status: isQuota ? 429 : 500 }
+    );
   }
 }

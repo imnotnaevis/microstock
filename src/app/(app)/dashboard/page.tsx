@@ -29,6 +29,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { loadSettings } from "@/lib/settings";
 import type { TrendData } from "@/app/api/trend/route";
+import { QuotaAlert } from "@/components/ui/quota-alert";
 
 const chartConfig = {
   score: { label: "Trend Score", color: "oklch(0.4341 0.0392 41.9938)" },
@@ -243,7 +244,11 @@ export default function DashboardPage() {
         {/* Error state */}
         {error && !isLoading && (
           <div className="grid">
-            <ErrorState message={error} onRetry={fetchTrends} />
+            {error.includes("429") || error.toLowerCase().includes("quota") || error.toLowerCase().includes("rate limit") ? (
+              <QuotaAlert message={error} onRetry={fetchTrends} />
+            ) : (
+              <ErrorState message={error} onRetry={fetchTrends} />
+            )}
           </div>
         )}
 
