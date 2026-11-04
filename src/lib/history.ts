@@ -8,7 +8,7 @@ export type PromptSession = {
   targetModel: string;
   themes: string;
   style: string;
-  prompts: { text: string; negative: string; aspectRatio: string }[];
+  prompts: { text: string; negative: string; aspectRatio: string; aspectRatioReason?: string }[];
 };
 
 export type SeoEntry = { fileName: string; result: { title: string; description: string; keywords: string[] } };

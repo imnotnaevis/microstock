@@ -15,7 +15,55 @@ const MODEL_TIPS: Record<string, string> = {
   kling: "Format Kling AI: deskripsi natural, sertakan elemen temporal dan gerakan.",
 };
 
-const ASPECT_RATIOS: Record<string, string[]> = {
+export const MARKET_ASPECT_RATIO_INFO: Record<
+  string,
+  { label: string; useCase: string; demand: string; badge: string }
+> = {
+  "16:9": {
+    label: "16:9 (Landscape Widescreen)",
+    useCase: "Website Hero Banner, YouTube Thumbnails, Digital Ads, Presentasi Bisnis",
+    demand: "Sangat Tinggi",
+    badge: "🔥 Paling Laku untuk Web & Media",
+  },
+  "9:16": {
+    label: "9:16 (Vertical Fullscreen)",
+    useCase: "TikTok, Instagram Reels, YouTube Shorts, Story, Mobile Lockscreen",
+    demand: "Sangat Tinggi",
+    badge: "🔥 Meledak untuk Mobile & Video",
+  },
+  "3:2": {
+    label: "3:2 (Standar 35mm Photo)",
+    useCase: "Fotografi komersial Shutterstock/Adobe Stock, editorial, majalah, kemasan",
+    demand: "Tinggi",
+    badge: "⭐ Standar Stock Photography",
+  },
+  "2:3": {
+    label: "2:3 (Portrait Poster)",
+    useCase: "Poster, cover buku/e-book, flyer vertikal, katalog fashion",
+    demand: "Tinggi",
+    badge: "⭐ Populer untuk Poster & Cetak",
+  },
+  "1:1": {
+    label: "1:1 (Square Persegi)",
+    useCase: "Icon Set, Instagram Feed, Marketplace Thumbnail (Tokopedia/Shopee), Avatar",
+    demand: "Tinggi",
+    badge: "⭐ Utama untuk Icon & E-Commerce",
+  },
+  "4:3": {
+    label: "4:3 (Landscape Medium)",
+    useCase: "E-Commerce product card, tablet display, editorial print",
+    demand: "Menengah",
+    badge: "Standar Display & E-Commerce",
+  },
+  "3:4": {
+    label: "3:4 (Portrait Medium)",
+    useCase: "Pinterest pins, visual feed mobile, majalah cetak",
+    demand: "Menengah",
+    badge: "Populer di Pinterest & Media Cetak",
+  },
+};
+
+export const ASPECT_RATIOS: Record<string, string[]> = {
   image: ["16:9", "4:3", "1:1", "3:2", "9:16"],
   photo: ["3:2", "4:3", "16:9", "1:1", "2:3"],
   vector: ["1:1", "16:9", "4:3", "3:4"],
@@ -30,11 +78,28 @@ function extractJson(text: string): string {
 
 export async function POST(req: Request) {
   try {
-    const { keyword, themes, style, brief, assetType, targetModel, count, model, keys, seamless, abstrak, iconSet } = await req.json();
+    const {
+      keyword,
+      themes,
+      style,
+      brief,
+      assetType,
+      targetModel,
+      count,
+      model,
+      keys,
+      seamless,
+      abstrak,
+      iconSet,
+      selectedRatio,
+    } = await req.json();
     const effectiveKeys = resolveGeminiKeys(keys);
 
     if (!effectiveKeys.length) {
-      return NextResponse.json({ error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." },
+        { status: 400 }
+      );
     }
 
     if (!targetModel) {
@@ -42,7 +107,11 @@ export async function POST(req: Request) {
     }
 
     const n = Math.min(Math.max(parseInt(count) || 3, 1), 20);
-    const ratios = ASPECT_RATIOS[assetType] || ASPECT_RATIOS.image;
+    const validRatios = ASPECT_RATIOS[assetType] || ASPECT_RATIOS.image;
+    const enforcedRatio =
+      selectedRatio && selectedRatio !== "auto" && validRatios.includes(selectedRatio)
+        ? selectedRatio
+        : null;
     const modelTip = MODEL_TIPS[targetModel] || "Format deskriptif detail.";
 
     const isVideoMode = seamless || abstrak;
@@ -76,42 +145,75 @@ NEGATIVE PROMPT (mandatory for all): photorealistic, 3D render, photo, gradient 
 Aspect ratio for all icon sets: 1:1 (square canvas)
 
 Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
-[{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality, text, letters, numbers, labels, captions, watermarks, typography, words, characters, alphabet", "aspectRatio": "1:1" }]`;
+[{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality, text, letters, numbers, labels, captions, watermarks, typography, words, characters, alphabet", "aspectRatio": "1:1", "aspectRatioReason": "Standar grid 1:1 wajib untuk koleksi icon set microstock (mudah dipotong dan dikonversi ke SVG/vektor)" }]`;
 
-      const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
-        const response = await client.models.generateContent({
-          model: activeModel,
-          contents: iconSetPrompt,
-        });
-        return response.text;
-      }, buildModelChain(model || "gemini-3.8-flash"));
+      const rawText = await withGemini(
+        effectiveKeys,
+        async (client, activeModel) => {
+          const response = await client.models.generateContent({
+            model: activeModel,
+            contents: iconSetPrompt,
+          });
+          return response.text;
+        },
+        buildModelChain(model || "gemini-3.8-flash")
+      );
 
       const parsed = JSON.parse(extractJson(rawText ?? ""));
       if (!Array.isArray(parsed)) throw new Error("Format respons tidak valid");
 
       return NextResponse.json(
-        parsed.slice(0, n).map((p: { text: string; negative: string; aspectRatio: string }, i: number) => ({
-          id: String(i + 1),
-          text: p.text,
-          negative: p.negative,
-          aspectRatio: "1:1",
-        }))
+        parsed.slice(0, n).map(
+          (
+            p: {
+              text: string;
+              negative: string;
+              aspectRatio?: string;
+              aspectRatioReason?: string;
+            },
+            i: number
+          ) => ({
+            id: String(i + 1),
+            text: p.text,
+            negative: p.negative,
+            aspectRatio: "1:1",
+            aspectRatioReason:
+              p.aspectRatioReason ||
+              "Standar grid 1:1 wajib untuk koleksi icon set microstock (mudah dipotong dan dikonversi ke SVG/vektor)",
+          })
+        )
       );
     }
 
-    const seamlessRules = seamless ? `
+    const seamlessRules = seamless
+      ? `
 SEAMLESS LOOP — WAJIB:
 - Video harus looping sempurna: frame pertama identik dengan frame terakhir
 - Gerakan harus kontinu dan tidak putus: aliran air, gelombang, partikel berputar, gradien bergerak, texture flowing
 - TIDAK boleh ada hard cut, jump cut, atau transisi yang terlihat
 - Durasi ideal: 4-10 detik yang bisa di-loop tanpa terasa
-- Teknik: seamless loop, perfect loop, cinemagraph style, infinite loop` : "";
+- Teknik: seamless loop, perfect loop, cinemagraph style, infinite loop`
+      : "";
 
-    const abstrakRules = abstrak ? `
+    const abstrakRules = abstrak
+      ? `
 ABSTRACT VISUAL — WAJIB:
 - TIDAK boleh ada objek/subjek yang dapat dikenali (no people, no objects, no text, no landscapes)
 - Murni elemen visual: warna, cahaya, bentuk geometris, fluid simulation, partikel, bokeh, tekstur organik, motion graphics, plasma
-- Contoh: color gradient flow, geometric morphing, light leak explosion, particle wave, ink in water, glitch art, fractal zoom` : "";
+- Contoh: color gradient flow, geometric morphing, light leak explosion, particle wave, ink in water, glitch art, fractal zoom`
+      : "";
+
+    const videoRatioRules = enforcedRatio
+      ? `- WAJIB gunakan aspect ratio TEPAT "${enforcedRatio}" untuk semua prompt.
+- Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini cocok untuk video komersial.`
+      : `- Tentukan aspect ratio paling laku dan bernilai komersial dari pilihan: [${validRatios.join(", ")}]. (Catatan pasar: 9:16 untuk Reels/TikTok/Shorts dengan demand meledak, 16:9 untuk YouTube & Video Web).
+- Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini direkomendasikan untuk video tersebut.`;
+
+    const imageRatioRules = enforcedRatio
+      ? `- WAJIB gunakan aspect ratio TEPAT "${enforcedRatio}" untuk semua prompt.
+- Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini cocok untuk aset tersebut.`
+      : `- Tentukan aspect ratio paling laku dan komersial dari pilihan: [${validRatios.join(", ")}].
+- Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini direkomendasikan (mis: "Paling dicari untuk Website Hero Banner & Display Ads" atau "Standar fotografi komersial Shutterstock/Adobe Stock" atau "Populer untuk Poster & Cover Cetak").`;
 
     const prompt = isVideoMode
       ? `Kamu adalah ahli prompt engineering untuk video microstock. Buat TEPAT ${n} variasi prompt video untuk model AI ${targetModel || "video AI"}.
@@ -120,15 +222,16 @@ ${seamlessRules}${abstrakRules}
 Panduan format: ${modelTip}
 ${themes ? `\nStyle/tema tambahan: ${themes}` : ""}${style ? `\nStyle preset: ${style}` : ""}${brief ? `\nBrief: ${brief}` : ""}
 
+ATURAN ASPEK RASIO PASAR:
+${videoRatioRules}
+
 ATURAN DIVERSIFIKASI:
 - Setiap prompt HARUS memiliki palet warna, ritme gerakan, dan elemen visual yang BERBEDA
 - Tujuan: ${n} aset berbeda yang bisa dijual independen
 - Negative prompt: no people, no text, no recognizable objects, no camera shake${abstrak ? "" : ", no abrupt cuts"}
-- Aspect ratio dari: ${ratios.join(", ")}
 
 Kembalikan HANYA array JSON valid dengan TEPAT ${n} item:
-[{ "text": "<prompt>", "negative": "<negative>", "aspectRatio": "<ratio>" }]`
-
+[{ "text": "<prompt>", "negative": "<negative>", "aspectRatio": "<ratio>", "aspectRatioReason": "<alasan kebutuhan pasar komersial>" }]`
       : `Kamu adalah ahli prompt engineering untuk aset microstock. Buat TEPAT ${n} variasi prompt untuk model AI ${targetModel || "image AI"}.
 
 Input:
@@ -140,6 +243,9 @@ Input:
 
 Panduan format: ${modelTip}
 
+ATURAN ASPEK RASIO PASAR:
+${imageRatioRules}
+
 ATURAN WAJIB — DIVERSIFIKASI:
 - Setiap prompt HARUS memiliki SUBJEK yang BERBEDA dalam kategori "${keyword}". Jangan ulangi objek/subjek yang sama.
 - Variasikan sudut kamera: top-down, eye-level, low angle, close-up macro, wide shot, aerial — tiap prompt berbeda.
@@ -148,28 +254,50 @@ ATURAN WAJIB — DIVERSIFIKASI:
 - Tujuan: ${n} prompt = ${n} aset berbeda yang bisa dijual secara independen, bukan variasi dari objek yang sama.
 - Fokus nilai komersial microstock: clean, versatile, commercially usable.
 - Negative prompt relevan per subjek masing-masing.
-- Aspect ratio pilih dari: ${ratios.join(", ")}
 
 Kembalikan HANYA array JSON valid dengan TEPAT ${n} item, tanpa teks lain:
-[{ "text": "<prompt lengkap siap pakai>", "negative": "<negative prompt>", "aspectRatio": "<salah satu dari: ${ratios.join(", ")}>" }]`;
+[{ "text": "<prompt lengkap siap pakai>", "negative": "<negative prompt>", "aspectRatio": "<salah satu dari: ${validRatios.join(", ")}>", "aspectRatioReason": "<alasan kebutuhan pasar komersial>" }]`;
 
-    const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
-      const response = await client.models.generateContent({
-        model: activeModel,
-        contents: prompt,
-      });
-      return response.text;
-    }, buildModelChain(model || "gemini-3.8-flash"));
+    const rawText = await withGemini(
+      effectiveKeys,
+      async (client, activeModel) => {
+        const response = await client.models.generateContent({
+          model: activeModel,
+          contents: prompt,
+        });
+        return response.text;
+      },
+      buildModelChain(model || "gemini-3.8-flash")
+    );
 
     const parsed = JSON.parse(extractJson(rawText ?? ""));
     if (!Array.isArray(parsed)) throw new Error("Format respons tidak valid");
 
-    const results = parsed.slice(0, n).map((p: { text: string; negative: string; aspectRatio: string }, i: number) => ({
-      id: String(i + 1),
-      text: p.text,
-      negative: p.negative,
-      aspectRatio: p.aspectRatio,
-    }));
+    const results = parsed.slice(0, n).map(
+      (
+        p: {
+          text: string;
+          negative: string;
+          aspectRatio?: string;
+          aspectRatioReason?: string;
+        },
+        i: number
+      ) => {
+        const finalRatio = p.aspectRatio || enforcedRatio || validRatios[0];
+        const marketInfo = MARKET_ASPECT_RATIO_INFO[finalRatio];
+        const fallbackReason = marketInfo
+          ? `${marketInfo.badge} — ${marketInfo.useCase}`
+          : "Format komersial standar microstock";
+
+        return {
+          id: String(i + 1),
+          text: p.text,
+          negative: p.negative,
+          aspectRatio: finalRatio,
+          aspectRatioReason: p.aspectRatioReason?.trim() || fallbackReason,
+        };
+      }
+    );
 
     return NextResponse.json(results);
   } catch (err) {

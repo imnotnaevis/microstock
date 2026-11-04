@@ -22,6 +22,7 @@ import {
   Download,
   X,
   CheckCircle2,
+  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -29,7 +30,13 @@ import { cn } from "@/lib/utils";
 import { loadSettings } from "@/lib/settings";
 import { savePromptSession } from "@/lib/history";
 
-type PromptItem = { id: string; text: string; negative: string; aspectRatio: string };
+type PromptItem = {
+  id: string;
+  text: string;
+  negative: string;
+  aspectRatio: string;
+  aspectRatioReason?: string;
+};
 
 const modelsByType: Record<string, { value: string; label: string }[]> = {
   image: [
@@ -68,6 +75,61 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   video: "Video",
 };
 
+export const MARKET_ASPECT_RATIO_INFO: Record<
+  string,
+  { label: string; useCase: string; demand: string; badge: string }
+> = {
+  "16:9": {
+    label: "16:9 Landscape (Widescreen)",
+    useCase: "Website Hero Banner, YouTube Thumbnails, Header Web, Digital Ads, Presentasi Bisnis",
+    demand: "Sangat Tinggi",
+    badge: "🔥 Paling Dicari untuk Web & Banner",
+  },
+  "9:16": {
+    label: "9:16 Vertical (Mobile Fullscreen)",
+    useCase: "TikTok, Instagram Reels, YouTube Shorts, Story, Wallpaper Handphone, Splash Screen",
+    demand: "Sangat Tinggi",
+    badge: "🔥 Demand Meledak untuk Mobile & Video",
+  },
+  "3:2": {
+    label: "3:2 Standar 35mm (Landscape)",
+    useCase: "Standar fotografi komersial Shutterstock & Adobe Stock, editorial, majalah, kemasan",
+    demand: "Tinggi",
+    badge: "⭐ Standar Emas Stock Photography",
+  },
+  "2:3": {
+    label: "2:3 Vertical (Portrait)",
+    useCase: "Poster, cover buku/e-book, flyer vertikal, katalog mode & fashion",
+    demand: "Tinggi",
+    badge: "⭐ Populer untuk Poster & Cetak",
+  },
+  "1:1": {
+    label: "1:1 Square (Persegi)",
+    useCase: "Icon Set, Instagram Feed, Marketplace Thumbnail (Tokopedia/Shopee/Amazon), Profil",
+    demand: "Tinggi",
+    badge: "⭐ Wajib untuk Icon & E-Commerce",
+  },
+  "4:3": {
+    label: "4:3 Standard Display",
+    useCase: "Katalog produk, tampilan tablet/iPad, foto editorial cetak",
+    demand: "Menengah",
+    badge: "Standar Display & E-Commerce",
+  },
+  "3:4": {
+    label: "3:4 Vertical Medium",
+    useCase: "Pinterest pin, infografis feed, editorial portrait",
+    demand: "Menengah",
+    badge: "Populer untuk Pinterest & Feed",
+  },
+};
+
+const RATIOS_BY_ASSET_TYPE: Record<string, string[]> = {
+  image: ["16:9", "4:3", "1:1", "3:2", "9:16"],
+  photo: ["3:2", "4:3", "16:9", "1:1", "2:3"],
+  vector: ["1:1", "16:9", "4:3", "3:4"],
+  video: ["16:9", "9:16", "1:1"],
+};
+
 function PromptGeneratorContent() {
   const searchParams = useSearchParams();
   const initialKeyword = searchParams.get("keyword") || "";
@@ -82,6 +144,8 @@ function PromptGeneratorContent() {
   );
   // Target model wajib dipilih manual oleh pengguna, default kosong
   const [targetModel, setTargetModel] = useState("");
+  const [selectedRatio, setSelectedRatio] = useState("auto");
+  const [showRatioGuide, setShowRatioGuide] = useState(false);
   const [keyword, setKeyword] = useState(initialKeyword || "Animal");
   const [themes, setThemes] = useState(initialThemes);
   const [style, setStyle] = useState(initialStyle);
@@ -187,6 +251,7 @@ function PromptGeneratorContent() {
           seamless,
           abstrak,
           iconSet,
+          selectedRatio,
         }),
       });
       const data = await res.json();
@@ -205,6 +270,7 @@ function PromptGeneratorContent() {
           text: p.text,
           negative: p.negative,
           aspectRatio: p.aspectRatio,
+          aspectRatioReason: p.aspectRatioReason,
         })),
       });
       toast.success(`${data.length} prompt berhasil di-generate!`);
@@ -229,7 +295,9 @@ function PromptGeneratorContent() {
     const content = prompts
       .map(
         (p, i) =>
-          `# Prompt ${i + 1}\n${p.text}\n\nNegative: ${p.negative}\nAspect Ratio: ${p.aspectRatio}`
+          `# Prompt ${i + 1}\n${p.text}\n\nNegative: ${p.negative}\nAspect Ratio: ${p.aspectRatio}${
+            p.aspectRatioReason ? `\nKebutuhan Pasar: ${p.aspectRatioReason}` : ""
+          }`
       )
       .join("\n\n---\n\n");
     const blob = new Blob([content], { type: "text/plain" });
@@ -243,6 +311,7 @@ function PromptGeneratorContent() {
 
   const currentModels = modelsByType[assetType] || modelsByType.image;
   const selectedModelLabel = currentModels.find((m) => m.value === targetModel)?.label;
+  const currentRatios = RATIOS_BY_ASSET_TYPE[assetType] || RATIOS_BY_ASSET_TYPE.image;
 
   return (
     <div className="flex flex-col flex-1">
@@ -364,6 +433,10 @@ function PromptGeneratorContent() {
                         if (targetModel && !newModels.some((m) => m.value === targetModel)) {
                           setTargetModel("");
                         }
+                        const newRatios = RATIOS_BY_ASSET_TYPE[v] || RATIOS_BY_ASSET_TYPE.image;
+                        if (selectedRatio !== "auto" && !newRatios.includes(selectedRatio)) {
+                          setSelectedRatio("auto");
+                        }
                       }
                     }}
                   >
@@ -484,6 +557,133 @@ function PromptGeneratorContent() {
               </div>
 
               <Separator />
+
+              {/* Aspek Rasio & Rekomendasi Pasar */}
+              <div className="space-y-2 rounded-lg border bg-muted/20 p-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs font-semibold">Rekomendasi Aspek Rasio</Label>
+                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-blue-300 text-blue-700 bg-blue-50/50">
+                      Kebutuhan Pasar
+                    </Badge>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRatioGuide(!showRatioGuide)}
+                    className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                  >
+                    <HelpCircle className="h-3 w-3" />
+                    {showRatioGuide ? "Tutup Panduan" : "Panduan Pasar"}
+                  </button>
+                </div>
+
+                <Select value={selectedRatio} onValueChange={(v) => v && setSelectedRatio(v)}>
+                  <SelectTrigger className="h-8 text-xs w-full bg-background">
+                    <SelectValue>
+                      {selectedRatio === "auto"
+                        ? "✨ Auto (Rekomendasi AI Sesuai Kebutuhan Pasar)"
+                        : `${selectedRatio} — ${MARKET_ASPECT_RATIO_INFO[selectedRatio]?.badge || selectedRatio}`}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">
+                      ✨ Auto (Rekomendasi AI Paling Laku di Pasar)
+                    </SelectItem>
+                    {currentRatios.map((r) => {
+                      const info = MARKET_ASPECT_RATIO_INFO[r];
+                      return (
+                        <SelectItem key={r} value={r}>
+                          {r} {info ? `— ${info.badge}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+
+                {/* Quick Chips Rasio Terpopuler Pasar */}
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                  <span className="text-[10px] text-muted-foreground mr-0.5">Rasio Laku:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRatio("auto")}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors",
+                      selectedRatio === "auto"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    ✨ Auto
+                  </button>
+                  {currentRatios.slice(0, 4).map((r) => {
+                    const isSelected = selectedRatio === r;
+                    const info = MARKET_ASPECT_RATIO_INFO[r];
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setSelectedRatio(r)}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                        )}
+                        title={info?.useCase}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Panduan Kebutuhan Pasar Accordion/Card */}
+                {showRatioGuide && (
+                  <div className="rounded-md border border-border bg-background p-2.5 space-y-2 text-xs mt-2">
+                    <div className="font-semibold text-foreground flex items-center justify-between">
+                      <span>Kebutuhan Pasar Microstock ({ASSET_TYPE_LABELS[assetType]}):</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Klik untuk pilih</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5 text-[11px]">
+                      {currentRatios.map((r) => {
+                        const info = MARKET_ASPECT_RATIO_INFO[r];
+                        if (!info) return null;
+                        const isSelected = selectedRatio === r;
+                        return (
+                          <div
+                            key={r}
+                            onClick={() => setSelectedRatio(r)}
+                            className={cn(
+                              "p-2 rounded-md border transition-all cursor-pointer flex items-start gap-2",
+                              isSelected
+                                ? "bg-primary/10 border-primary text-foreground"
+                                : "bg-muted/30 hover:bg-muted/70 border-border/60 text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span className="font-bold font-mono px-1.5 py-0.5 rounded bg-muted text-foreground shrink-0 text-[10px]">
+                              {r}
+                            </span>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="font-semibold text-foreground flex items-center gap-1.5 flex-wrap">
+                                <span>{info.label}</span>
+                                <Badge variant="secondary" className="text-[9px] py-0 h-3.5">
+                                  {info.badge}
+                                </Badge>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground leading-tight">
+                                {info.useCase}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/90 italic pt-1 border-t">
+                      💡 <strong>Tips Penjualan:</strong> Pembeli microstock mencari rasio sesuai tujuan desain (Hero Banner web butuh 16:9, konten medsos butuh 9:16 atau 1:1, sedangkan kebutuhan cetak & editorial butuh 3:2).
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {assetType === "video" && (
                 <div className="space-y-1.5">
@@ -656,99 +856,134 @@ function PromptGeneratorContent() {
                   </Button>
                 </div>
                 <div className="space-y-4">
-                  {prompts.map((prompt, i) => (
-                    <Card
-                      key={prompt.id}
-                      className={
-                        savedPrompts.includes(prompt.id) ? "border-primary/50 bg-primary/5" : ""
-                      }
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold">Prompt #{i + 1}</span>
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-xs">
-                              {prompt.aspectRatio}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs font-medium">
-                              {targetModel === "nanobanana" ? "🍌 Nano Banana" : selectedModelLabel || targetModel}
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="bg-muted rounded-md p-3 text-sm leading-relaxed font-mono select-all">
-                          {prompt.text}
-                        </div>
-                        <div className="space-y-1">
+                  {prompts.map((prompt, i) => {
+                    const ratioInfo = MARKET_ASPECT_RATIO_INFO[prompt.aspectRatio];
+                    return (
+                      <Card
+                        key={prompt.id}
+                        className={
+                          savedPrompts.includes(prompt.id) ? "border-primary/50 bg-primary/5" : ""
+                        }
+                      >
+                        <CardHeader className="pb-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Negative Prompt</Label>
-                            <button
-                              type="button"
+                            <span className="text-sm font-semibold">Prompt #{i + 1}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-xs font-semibold bg-primary/5 border-primary/30 text-primary">
+                                📐 {prompt.aspectRatio}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs font-medium">
+                                {targetModel === "nanobanana" ? "🍌 Nano Banana" : selectedModelLabel || targetModel}
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {/* Rekomendasi Aspek Rasio Pasar Callout */}
+                          <div className="flex items-start gap-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 p-2.5 text-xs">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white font-bold text-[11px] shadow-xs">
+                              📐
+                            </div>
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap justify-between">
+                                <span className="font-semibold text-blue-950 dark:text-blue-100 flex items-center gap-1.5">
+                                  <span>Rasio Pasar: {prompt.aspectRatio}</span>
+                                  <span className="font-normal text-muted-foreground">•</span>
+                                  <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                                    {ratioInfo?.badge || "Rekomendasi Komersial"}
+                                  </span>
+                                </span>
+                                {ratioInfo?.demand && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200">
+                                    Demand: {ratioInfo.demand}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-blue-900/85 dark:text-blue-200/90 leading-relaxed">
+                                {prompt.aspectRatioReason || ratioInfo?.useCase || "Ideal untuk aset komersial microstock"}
+                              </p>
+                              {targetModel === "nanobanana" && (
+                                <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium pt-0.5 border-t border-blue-200/50 dark:border-blue-900/40 mt-1">
+                                  🍌 <strong>Tips Nano Banana:</strong> Set aspect ratio ke <strong>{prompt.aspectRatio}</strong> pada model Nano Banana Anda sebelum generate gambar.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Prompt Text */}
+                          <div className="bg-muted rounded-md p-3 text-sm leading-relaxed font-mono select-all">
+                            {prompt.text}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">Negative Prompt</Label>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopy(prompt.negative, "Negative prompt disalin!")
+                                }
+                                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <Copy className="h-3 w-3" /> Salin Negatif
+                              </button>
+                            </div>
+                            <div className="bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-900/40 rounded-md p-2 text-xs font-mono text-red-700 dark:text-red-400 leading-relaxed select-all">
+                              {prompt.negative}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 text-xs flex-1 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer"
                               onClick={() =>
-                                handleCopy(prompt.negative, "Negative prompt disalin!")
+                                handleCopy(
+                                  prompt.text,
+                                  `Prompt disalin! Gunakan rasio ${prompt.aspectRatio} di ${
+                                    targetModel === "nanobanana" ? "Nano Banana" : selectedModelLabel || targetModel
+                                  }.`
+                                )
                               }
-                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
                             >
-                              <Copy className="h-3 w-3" /> Salin Negatif
-                            </button>
+                              <Copy className="h-3.5 w-3.5 mr-1" />
+                              Salin Prompt
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs px-2.5 cursor-pointer"
+                              title="Salin Prompt + Negative"
+                              onClick={() =>
+                                handleCopy(
+                                  `${prompt.text}\n\nNegative: ${prompt.negative}`,
+                                  "Prompt + Negative disalin!"
+                                )
+                              }
+                            >
+                              + Negatif
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs cursor-pointer"
+                              onClick={() => handleSave(prompt.id)}
+                              disabled={savedPrompts.includes(prompt.id)}
+                            >
+                              <Save className="h-3.5 w-3.5 mr-1" />
+                              {savedPrompts.includes(prompt.id) ? "Tersimpan" : "Simpan"}
+                            </Button>
+                            <Link
+                              href={`/seo?keyword=${encodeURIComponent(temaUtama.trim() || keyword)}`}
+                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 text-xs")}
+                            >
+                              <Tags className="h-3.5 w-3.5 mr-1" />
+                              SEO
+                            </Link>
                           </div>
-                          <div className="bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-900/40 rounded-md p-2 text-xs font-mono text-red-700 dark:text-red-400 leading-relaxed select-all">
-                            {prompt.negative}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 pt-1">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="h-8 text-xs flex-1 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer"
-                            onClick={() =>
-                              handleCopy(
-                                prompt.text,
-                                `Prompt disalin! Siap dipaste ke ${
-                                  targetModel === "nanobanana" ? "Nano Banana" : selectedModelLabel || targetModel
-                                }.`
-                              )
-                            }
-                          >
-                            <Copy className="h-3.5 w-3.5 mr-1" />
-                            Salin Prompt
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs px-2.5 cursor-pointer"
-                            title="Salin Prompt + Negative"
-                            onClick={() =>
-                              handleCopy(
-                                `${prompt.text}\n\nNegative: ${prompt.negative}`,
-                                "Prompt + Negative disalin!"
-                              )
-                            }
-                          >
-                            + Negatif
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs cursor-pointer"
-                            onClick={() => handleSave(prompt.id)}
-                            disabled={savedPrompts.includes(prompt.id)}
-                          >
-                            <Save className="h-3.5 w-3.5 mr-1" />
-                            {savedPrompts.includes(prompt.id) ? "Tersimpan" : "Simpan"}
-                          </Button>
-                          <Link
-                            href={`/seo?keyword=${encodeURIComponent(temaUtama.trim() || keyword)}`}
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 text-xs")}
-                          >
-                            <Tags className="h-3.5 w-3.5 mr-1" />
-                            SEO
-                          </Link>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </>
             ) : (
