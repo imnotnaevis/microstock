@@ -88,10 +88,6 @@ export default function DashboardPage() {
 
   const fetchTrends = useCallback(async () => {
     const settings = loadSettings();
-    if (settings.geminiKeys.length === 0) {
-      setNoKeys(true);
-      return;
-    }
     setNoKeys(false);
     setIsLoading(true);
     setError(null);
@@ -100,7 +96,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          keys: settings.geminiKeys,
+          keys: settings.geminiKeys || [],
           model: settings.geminiModel,
           platform,
           assetType,
@@ -108,7 +104,13 @@ export default function DashboardPage() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Gagal memuat data");
+      if (!res.ok) {
+        if (json.error && json.error.toLowerCase().includes("belum ada api key")) {
+          setNoKeys(true);
+          return;
+        }
+        throw new Error(json.error || "Gagal memuat data");
+      }
       setData(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

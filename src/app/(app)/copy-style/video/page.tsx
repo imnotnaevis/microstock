@@ -80,10 +80,6 @@ export default function CopyStyleVideoPage() {
 
   async function handleAnalyze() {
     const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
-      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
-      return;
-    }
 
     if (!videoFile && !urlInput) {
       toast.error("Upload video atau masukkan URL terlebih dahulu.");

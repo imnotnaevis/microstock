@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
 
 const PROMPT = `Kamu adalah analis visual microstock profesional. Analisis gambar ini secara detail dan kembalikan HANYA objek JSON valid tanpa teks lain di luar JSON:
 
@@ -23,12 +23,13 @@ function extractJson(text: string): string {
 export async function POST(req: Request) {
   try {
     const { imageBase64, mimeType, imageUrl, model, keys } = await req.json();
+    const effectiveKeys = resolveGeminiKeys(keys);
 
-    if (!keys?.length) {
-      return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
+    if (!effectiveKeys.length) {
+      return NextResponse.json({ error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." }, { status: 400 });
     }
 
-    const rawText = await withGemini(keys, async (client, activeModel) => {
+    const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
       let imagePart: { inlineData: { mimeType: string; data: string } };
 
       if (imageBase64) {

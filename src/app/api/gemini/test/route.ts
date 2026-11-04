@@ -4,12 +4,13 @@ import { GoogleGenAI } from "@google/genai";
 export async function POST(req: Request) {
   try {
     const { key, model } = await req.json();
+    const effectiveKey = key || process.env.GEMINI_API_KEY || "";
 
-    if (!key || typeof key !== "string") {
+    if (!effectiveKey || typeof effectiveKey !== "string") {
       return NextResponse.json({ ok: false, error: "API key tidak valid." }, { status: 400 });
     }
 
-    const client = new GoogleGenAI({ apiKey: key });
+    const client = new GoogleGenAI({ apiKey: effectiveKey });
     const modelsToTry = [model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.8-flash"].filter(Boolean);
     let success = false;
     let lastErr: unknown;

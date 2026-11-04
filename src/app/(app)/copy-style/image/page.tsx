@@ -57,14 +57,10 @@ export default function CopyStyleImagePage() {
 
   async function handleAnalyze() {
     const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
-      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
-      return;
-    }
 
     setIsAnalyzing(true);
     try {
-      let body: Record<string, unknown> = { model: geminiModel, keys: geminiKeys };
+      let body: Record<string, unknown> = { model: geminiModel, keys: geminiKeys || [] };
 
       if (previewSrc) {
         const [prefix, data] = previewSrc.split(",");

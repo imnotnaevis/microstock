@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
 
 const platformLimits: Record<string, { name: string; maxTitle: number; maxDesc: number; maxKeywords: number }> = {
   adobe:       { name: "Adobe Stock",   maxTitle: 200, maxDesc: 200, maxKeywords: 49 },
@@ -48,15 +48,16 @@ function sanitizeSeo(raw: { title?: string; description?: string; keywords?: str
 export async function POST(req: Request) {
   try {
     const { imageBase64, fileUri, mimeType, platform, assetType, keyword, model, keys } = await req.json();
+    const effectiveKeys = resolveGeminiKeys(keys);
 
-    if (!keys?.length) {
-      return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
+    if (!effectiveKeys.length) {
+      return NextResponse.json({ error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." }, { status: 400 });
     }
     if (!imageBase64 && !fileUri) {
       return NextResponse.json({ error: "Tidak ada aset yang diberikan." }, { status: 400 });
     }
 
-    const rawText = await withGemini(keys, async (client, activeModel) => {
+    const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
       const mediaPart = fileUri
         ? { fileData: { fileUri, mimeType: mimeType || "video/mp4" } }
         : { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } };

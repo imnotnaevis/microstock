@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
 
 const MODEL_TIPS: Record<string, string> = {
   midjourney: "Format Midjourney: deskripsi detail, pisahkan elemen dengan koma, tambahkan parameter seperti --ar 16:9 --v 6.1 --style raw di akhir.",
@@ -31,9 +31,10 @@ function extractJson(text: string): string {
 export async function POST(req: Request) {
   try {
     const { keyword, themes, style, brief, assetType, targetModel, count, model, keys, seamless, abstrak, iconSet } = await req.json();
+    const effectiveKeys = resolveGeminiKeys(keys);
 
-    if (!keys?.length) {
-      return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
+    if (!effectiveKeys.length) {
+      return NextResponse.json({ error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." }, { status: 400 });
     }
 
     const n = Math.min(Math.max(parseInt(count) || 3, 1), 20);
@@ -73,7 +74,7 @@ Aspect ratio for all icon sets: 1:1 (square canvas)
 Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
 [{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality, text, letters, numbers, labels, captions, watermarks, typography, words, characters, alphabet", "aspectRatio": "1:1" }]`;
 
-      const rawText = await withGemini(keys, async (client, activeModel) => {
+      const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
         const response = await client.models.generateContent({
           model: activeModel,
           contents: iconSetPrompt,
@@ -148,7 +149,7 @@ ATURAN WAJIB — DIVERSIFIKASI:
 Kembalikan HANYA array JSON valid dengan TEPAT ${n} item, tanpa teks lain:
 [{ "text": "<prompt lengkap siap pakai>", "negative": "<negative prompt>", "aspectRatio": "<salah satu dari: ${ratios.join(", ")}>" }]`;
 
-    const rawText = await withGemini(keys, async (client, activeModel) => {
+    const rawText = await withGemini(effectiveKeys, async (client, activeModel) => {
       const response = await client.models.generateContent({
         model: activeModel,
         contents: prompt,

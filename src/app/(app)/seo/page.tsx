@@ -243,14 +243,10 @@ function SEOGeneratorContent() {
   async function handleGenerate() {
     if (!singleFile) return;
     const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
-      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
-      return;
-    }
     setIsGenerating(true);
     try {
       let body: Record<string, unknown>;
-      if (singleFile.size > 3 * 1024 * 1024) {
+      if (singleFile.size > 3 * 1024 * 1024 && geminiKeys?.[0]) {
         const fileUri = await uploadFileToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
         // ponytail: an uploaded file is only readable by the key that uploaded it, so don't rotate keys here.
         body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: [geminiKeys[0]] };
@@ -261,7 +257,7 @@ function SEOGeneratorContent() {
           reader.onerror = reject;
           reader.readAsDataURL(singleFile!);
         });
-        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys || [] };
       }
       setAnalyzeStatus("Generating SEO...");
       const res = await fetch("/api/seo", {
@@ -323,10 +319,6 @@ function SEOGeneratorContent() {
     const pending = bulkItems.filter((i) => i.status !== "done");
     if (!pending.length) return;
     const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
-      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
-      return;
-    }
     setIsBulkGenerating(true);
     const completed: SeoEntry[] = [];
     let successCount = 0;
@@ -337,10 +329,9 @@ function SEOGeneratorContent() {
       }
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
-        // ponytail: spread uploads round-robin across configured keys so one key's quota doesn't get hammered alone.
-        const uploadKey = geminiKeys[index % geminiKeys.length];
         let body: Record<string, unknown>;
-        if (item.file.size > 3 * 1024 * 1024) {
+        if (item.file.size > 3 * 1024 * 1024 && geminiKeys?.[0]) {
+          const uploadKey = geminiKeys[index % geminiKeys.length];
           const fileUri = await uploadFileToGemini(item.file, uploadKey);
           body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: [uploadKey] };
         } else {
@@ -350,7 +341,7 @@ function SEOGeneratorContent() {
             reader.onerror = reject;
             reader.readAsDataURL(item.file);
           });
-          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys || [] };
         }
         const res = await fetch("/api/seo", {
           method: "POST",

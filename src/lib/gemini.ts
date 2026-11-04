@@ -97,14 +97,33 @@ async function callWithRetry<T>(
   throw new Error("Maksimum percobaan retry terlampaui.");
 }
 
+// Resolves API keys: client-provided keys first, fallback to server-side GEMINI_API_KEY
+export function resolveGeminiKeys(providedKeys?: string[]): string[] {
+  const validProvided = (providedKeys || []).filter(
+    (k) => typeof k === "string" && k.trim().length > 0
+  );
+  if (validProvided.length > 0) return validProvided;
+
+  const envKey = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
+  const envKeys = envKey
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  return envKeys;
+}
+
 // fn receives (client, model) so model rotation is transparent to callers
 export async function withGemini<T>(
   keys: string[],
   fn: (client: GoogleGenAI, model: string) => Promise<T>,
   models: string[]
 ): Promise<T> {
-  if (keys.length === 0) {
-    throw new Error("Tidak ada API key yang dikonfigurasi. Tambahkan di halaman Settings.");
+  const activeKeys = resolveGeminiKeys(keys);
+  if (activeKeys.length === 0) {
+    throw new Error(
+      "Tidak ada Gemini API key yang tersedia. Tambahkan GEMINI_API_KEY di Vercel/server atau masukkan di halaman Settings."
+    );
   }
 
   let lastError: unknown;
@@ -112,7 +131,7 @@ export async function withGemini<T>(
   for (const model of models) {
     let modelUnavailable = false;
 
-    for (const key of keys) {
+    for (const key of activeKeys) {
       try {
         const client = new GoogleGenAI({ apiKey: key });
         return await callWithRetry(client, model, fn);

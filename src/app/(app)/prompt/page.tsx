@@ -121,17 +121,13 @@ function PromptGeneratorContent() {
 
   async function handleGenerate() {
     const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
-      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
-      return;
-    }
 
     setIsGenerating(true);
     try {
       const res = await fetch("/api/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: temaUtama.trim() || keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak, iconSet }),
+        body: JSON.stringify({ keyword: temaUtama.trim() || keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys || [], seamless, abstrak, iconSet }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");

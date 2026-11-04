@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withGemini, buildModelChain } from "@/lib/gemini";
+import { withGemini, buildModelChain, resolveGeminiKeys } from "@/lib/gemini";
 
 export type TrendData = {
   summary: string;
@@ -39,10 +39,11 @@ function extractJson(text: string): string {
 export async function POST(req: Request) {
   try {
     const { keys, model, platform, assetType, region } = await req.json();
+    const effectiveKeys = resolveGeminiKeys(keys);
 
-    if (!keys || keys.length === 0) {
+    if (effectiveKeys.length === 0) {
       return NextResponse.json(
-        { error: "Belum ada API key. Tambahkan di halaman Settings." },
+        { error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau di halaman Settings." },
         { status: 400 }
       );
     }

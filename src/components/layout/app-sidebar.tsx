@@ -15,6 +15,7 @@ import {
   Settings,
   History,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -185,9 +186,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <span>Pengaturan</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Keluar"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Keluar</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
         <div className="px-2 pb-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-          v1.0 · Personal · Single-user
+          v1.0 · wildanrahayu.online
         </div>
       </SidebarFooter>
     </Sidebar>
