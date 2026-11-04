@@ -51,9 +51,27 @@ const mockSeoResult = {
     "summer background", "tropical paradise", "outdoor photography", "sea horizon",
     "relaxation concept", "holiday background",
   ],
+  adobeStockCompliance: {
+    isAiGenerated: true,
+    hasFictionalPeopleOrProperty: false,
+    recommendedCheckboxes: ["Created using generative AI tools"],
+    category: "Photos",
+    complianceNotes: "100% Bebas merek dagang, nama tokoh, dan nama artis.",
+  },
 };
 
-type SeoResult = typeof mockSeoResult;
+type SeoResult = {
+  title: string;
+  description: string;
+  keywords: string[];
+  adobeStockCompliance?: {
+    isAiGenerated?: boolean;
+    hasFictionalPeopleOrProperty?: boolean;
+    recommendedCheckboxes?: string[];
+    category?: string;
+    complianceNotes?: string;
+  };
+};
 
 type BulkItem = {
   id: string;
@@ -83,7 +101,63 @@ function SeoResultView({ result, rules, onCopy }: {
 
   return (
     <div className="space-y-4">
-      <Card className="border-green-200 bg-green-50">
+      {/* Adobe Stock Generative AI Compliance Checklist */}
+      <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-semibold text-xs text-amber-900 dark:text-amber-300">
+              <CheckCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span>Checklist Submit Adobe Stock (Pedoman Konten AI)</span>
+            </div>
+            <Badge variant="outline" className="text-[10px] bg-background border-amber-300 text-amber-800 dark:text-amber-300 font-semibold">
+              Kategori: {result.adobeStockCompliance?.category || "Photos"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2.5 text-xs">
+          <div className="text-[11px] text-muted-foreground">
+            Sesuai pedoman resmi Adobe Stock (Updated 2026), centang opsi berikut di portal kontributor sebelum submit:
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="flex items-start gap-2 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
+              <input
+                type="checkbox"
+                checked
+                readOnly
+                className="mt-0.5 h-3.5 w-3.5 accent-primary cursor-default"
+              />
+              <div className="space-y-0.5">
+                <span className="font-semibold text-foreground">Created using generative AI tools</span>
+                <p className="text-[10px] text-muted-foreground">Wajib dicentang untuk semua aset buatan AI.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
+              <input
+                type="checkbox"
+                checked={result.adobeStockCompliance?.hasFictionalPeopleOrProperty ?? false}
+                readOnly
+                className="mt-0.5 h-3.5 w-3.5 accent-primary cursor-default"
+              />
+              <div className="space-y-0.5">
+                <span className="font-semibold text-foreground">People and Property are fictional</span>
+                <p className="text-[10px] text-muted-foreground">
+                  {result.adobeStockCompliance?.hasFictionalPeopleOrProperty
+                    ? "Centang: Menampilkan orang/properti fiktif (bebas model release)."
+                    : "Biarkan kosong jika tidak ada orang/bangunan yang dapat dikenali."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t border-amber-200/60 dark:border-amber-900/30 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
+            <span>Kepatuhan Aman: Judul & Keyword 100% bebas nama artis, tokoh nyata, merek dagang, dan klaim berita.</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900/40">
         <CardContent className="py-3">
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-1.5">

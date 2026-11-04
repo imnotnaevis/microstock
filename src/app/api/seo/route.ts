@@ -9,14 +9,38 @@ const platformLimits: Record<string, { name: string; maxTitle: number; maxDesc: 
 
 function buildPrompt(platformKey: string, assetType: string, keyword: string) {
   const p = platformLimits[platformKey] ?? platformLimits.adobe;
-  return `Kamu adalah SEO specialist microstock profesional. Analisis gambar/aset ini dan buat metadata SEO yang dioptimasi untuk ${p.name}.
+  return `Kamu adalah SEO specialist microstock profesional yang sangat mematuhi Pedoman Konten Generative AI resmi (Adobe Stock, Shutterstock, Vecteezy). Analisis gambar/aset ini dan buat metadata SEO yang siap submit.
+
+PEDOMAN KEPATUHAN GENERATIVE AI (WAJIB DIPATUHI):
+1. DILARANG KERAS menyertakan:
+   - Nama seniman/artis (misal: Greg Rutkowski, Studio Ghibli, dll)
+   - Nama orang nyata atau tokoh terkenal
+   - Karakter fiksi berhak cipta (Disney, Marvel, Pokemon, dll)
+   - Nama agensi/lembaga pemerintah (FBI, CIA, NASA, Kepolisian, dll)
+   - Merek dagang pihak ketiga (Apple, Nike, Starbucks, dll)
+   - Klaim atau deskripsi yang menyiratkan peristiwa berita nyata (deceptive newsworthy claims)
+2. Klasifikasikan tipe konten:
+   - Photos: jika foto realistis menyerupai jepretan kamera dan mematuhi anatomi manusia/hewan
+   - Illustrations: jika berupa seni grafis, konsep fantasi, lukisan, atau render artistik
+   - Vectors: jika grafis vektor
+   - Videos: jika rekaman bergerak
+3. Tentukan apakah gambar menampilkan orang fiktif atau properti fiktif (fictional people/property).
 
 Buat metadata dalam bahasa Inggris. Return HANYA objek JSON valid tanpa teks lain:
 
 {
-  "title": "<judul SEO maks ${p.maxTitle} karakter, deskriptif dan keyword-rich, sentence case (huruf kapital hanya di awal kalimat)>",
-  "description": "<deskripsi maks ${p.maxDesc} karakter, jelas dan informatif>",
-  "keywords": ["<keyword1>", "<keyword2>", ...]
+  "title": "<judul SEO maks ${p.maxTitle} karakter, deskriptif, bebas brand/nama artis, sentence case (kapital hanya di awal kalimat)>",
+  "description": "<deskripsi maks ${p.maxDesc} karakter, jelas, informatif, bebas klaim berita>",
+  "keywords": ["<keyword1>", "<keyword2>", ...],
+  "adobeStockCompliance": {
+    "isAiGenerated": true,
+    "hasFictionalPeopleOrProperty": <true jika menampilkan manusia/bangunan fiktif, false jika alam/objek murni>,
+    "recommendedCheckboxes": [
+      "Created using generative AI tools"
+    ],
+    "category": "<Photos | Illustrations | Vectors | Videos>",
+    "complianceNotes": "100% Bebas merek dagang, nama tokoh, dan nama seniman. Aman untuk lisensi komersial Adobe Stock."
+  }
 }
 
 Tipe aset: ${assetType}
@@ -37,12 +61,43 @@ function toSentenceCase(text: string): string {
 }
 
 // ponytail: model doesn't reliably obey the prompt's limits/casing/punctuation rules, so enforce them here as the single source of truth.
-function sanitizeSeo(raw: { title?: string; description?: string; keywords?: string[] }, limits: { maxTitle: number; maxDesc: number; maxKeywords: number }) {
+function sanitizeSeo(
+  raw: {
+    title?: string;
+    description?: string;
+    keywords?: string[];
+    adobeStockCompliance?: {
+      isAiGenerated?: boolean;
+      hasFictionalPeopleOrProperty?: boolean;
+      recommendedCheckboxes?: string[];
+      category?: string;
+      complianceNotes?: string;
+    };
+  },
+  limits: { maxTitle: number; maxDesc: number; maxKeywords: number }
+) {
   const title = toSentenceCase((raw.title ?? "").trim().replace(/\.+$/, "")).slice(0, limits.maxTitle).trim();
   const description = (raw.description ?? "").trim().slice(0, limits.maxDesc).trim();
   const keywords = [...new Set((raw.keywords ?? []).map((k) => String(k).trim().toLowerCase()).filter(Boolean))]
     .slice(0, limits.maxKeywords);
-  return { ...raw, title, description, keywords };
+
+  const hasFictional = raw.adobeStockCompliance?.hasFictionalPeopleOrProperty ?? false;
+  const checkboxes = ["Created using generative AI tools"];
+  if (hasFictional) {
+    checkboxes.push("People and Property are fictional");
+  }
+
+  const adobeStockCompliance = {
+    isAiGenerated: true,
+    hasFictionalPeopleOrProperty: hasFictional,
+    recommendedCheckboxes: checkboxes,
+    category: raw.adobeStockCompliance?.category || "Photos",
+    complianceNotes:
+      raw.adobeStockCompliance?.complianceNotes ||
+      "100% Bebas merek dagang, nama tokoh, dan nama artis. Aman untuk Adobe Stock.",
+  };
+
+  return { ...raw, title, description, keywords, adobeStockCompliance };
 }
 
 export async function POST(req: Request) {

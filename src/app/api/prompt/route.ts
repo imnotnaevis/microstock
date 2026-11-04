@@ -215,12 +215,29 @@ ABSTRACT VISUAL — WAJIB:
       : `- Tentukan aspect ratio paling laku dan komersial dari pilihan: [${validRatios.join(", ")}].
 - Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini direkomendasikan (mis: "Paling dicari untuk Website Hero Banner & Display Ads" atau "Standar fotografi komersial Shutterstock/Adobe Stock" atau "Populer untuk Poster & Cover Cetak").`;
 
+    const adobeComplianceRules = `
+PEDOMAN KEPATUHAN GENERATIVE AI (ADOBE STOCK & MICROSTOCK STANDARDS):
+1. DILARANG KERAS menyertakan:
+   - Nama artis/seniman (misal: Greg Rutkowski, Artgerm, dll)
+   - Nama orang nyata atau tokoh terkenal (politisi, selebriti, dll)
+   - Karakter fiksi berhak cipta (Disney, Marvel, Anime terkenal, dll)
+   - Nama agensi/lembaga pemerintah (FBI, CIA, NASA, Kepolisian, dll)
+   - Merek dagang / logo / properti intelektual pihak ketiga (Apple, Nike, dll)
+   - Narasi yang mengklaim peristiwa berita aktual/nyata (editorial news deception)
+2. KUALITAS ANATOMI & DETAIL:
+   - Anatomi manusia dan hewan harus sempurna secara biologis: tangan 5 jari yang rapi, mata simetris, proporsi tubuh alami, tanpa mutasi.
+   - Negative prompt WAJIB menyertakan: bad anatomy, deformed fingers, extra limbs, mutated hands, malformed limbs, distorted face, trademark, logo, copyrighted character, watermarks, text, blurry, duplicate.
+3. ANTI-SPAM (KEUNIKAN KOLEKSI):
+   - Jangan buat variasi yang hampir identik dari satu prompt yang sama (kebijakan anti-spam Adobe Stock).
+   - Setiap prompt dari ${n} variasi ini HARUS memiliki komposisi, subjek unik, angle kamera, dan suasana yang berbeda secara nyata.`;
+
     const prompt = isVideoMode
       ? `Kamu adalah ahli prompt engineering untuk video microstock. Buat TEPAT ${n} variasi prompt video untuk model AI ${targetModel || "video AI"}.
 ${seamlessRules}${abstrakRules}
 
 Panduan format: ${modelTip}
 ${themes ? `\nStyle/tema tambahan: ${themes}` : ""}${style ? `\nStyle preset: ${style}` : ""}${brief ? `\nBrief: ${brief}` : ""}
+${adobeComplianceRules}
 
 ATURAN ASPEK RASIO PASAR:
 ${videoRatioRules}
@@ -228,7 +245,7 @@ ${videoRatioRules}
 ATURAN DIVERSIFIKASI:
 - Setiap prompt HARUS memiliki palet warna, ritme gerakan, dan elemen visual yang BERBEDA
 - Tujuan: ${n} aset berbeda yang bisa dijual independen
-- Negative prompt: no people, no text, no recognizable objects, no camera shake${abstrak ? "" : ", no abrupt cuts"}
+- Negative prompt: no people, no text, no recognizable objects, no camera shake, bad quality${abstrak ? "" : ", no abrupt cuts"}
 
 Kembalikan HANYA array JSON valid dengan TEPAT ${n} item:
 [{ "text": "<prompt>", "negative": "<negative>", "aspectRatio": "<ratio>", "aspectRatioReason": "<alasan kebutuhan pasar komersial>" }]`
@@ -242,6 +259,7 @@ Input:
 - Brief: ${brief || "-"}
 
 Panduan format: ${modelTip}
+${adobeComplianceRules}
 
 ATURAN ASPEK RASIO PASAR:
 ${imageRatioRules}
