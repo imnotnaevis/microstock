@@ -413,12 +413,16 @@ export default function DashboardPage() {
                               <div className="text-xs text-green-600">{kw.change}</div>
                             </div>
                             <div className="flex gap-1">
-                              <Link href={`/prompt?keyword=${encodeURIComponent(kw.keyword)}`}
-                                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs")}>
+                              <Link
+                                href={`/prompt?keyword=${encodeURIComponent(kw.keyword)}&reason=${encodeURIComponent(kw.reason)}&platform=${encodeURIComponent(kw.platform)}&type=${assetType === "all" ? "photo" : assetType}`}
+                                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary font-medium")}
+                              >
                                 <Wand2 className="h-3 w-3 mr-1" />Prompt
                               </Link>
-                              <Link href={`/seo?keyword=${encodeURIComponent(kw.keyword)}`}
-                                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs")}>
+                              <Link
+                                href={`/seo?keyword=${encodeURIComponent(kw.keyword)}`}
+                                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs")}
+                              >
                                 <Tags className="h-3 w-3 mr-1" />SEO
                               </Link>
                             </div>

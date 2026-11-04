@@ -7,7 +7,7 @@ const MODEL_TIPS: Record<string, string> = {
   sdxl: "Format Stable Diffusion XL: keyword padat dipisah koma, tambahkan quality tags seperti (masterpiece:1.2), (best quality:1.1).",
   dalle3: "Format DALL-E 3: kalimat natural deskriptif, spesifik dan detail, tidak perlu parameter teknis.",
   ideogram: "Format Ideogram: deskripsi natural, bisa include teks jika ada elemen tipografi.",
-  nanobanana: "Format Nano Banana: deskripsi singkat dan padat dalam bahasa Inggris, fokus pada subjek utama, style, dan mood. Pisahkan elemen dengan koma.",
+  nanobanana: "Format Nano Banana: deskripsi visual yang sangat padat dan fokus dalam bahasa Inggris untuk aset microstock komersial berkualitas tinggi. Urutkan elemen: [subjek utama detail dan tajam], [pencahayaan & sudut kamera], [lingkungan/background bersih], [palet warna dominan & mood], [estetika commercial stock photography/vector, 8k]. Pisahkan setiap elemen dengan koma.",
   veo: "Format Google Veo: deskripsi sinematik, sertakan gerakan kamera, pacing, color grade, shot type.",
   runway: "Format Runway Gen-3: deskripsikan pergerakan, suasana, dan transisi visual secara sinematik.",
   pika: "Format Pika Labs: deskripsi pendek dan padat, fokus pada subjek dan motion.",
@@ -35,6 +35,10 @@ export async function POST(req: Request) {
 
     if (!effectiveKeys.length) {
       return NextResponse.json({ error: "Belum ada API key. Tambahkan GEMINI_API_KEY di Vercel atau halaman Settings." }, { status: 400 });
+    }
+
+    if (!targetModel) {
+      return NextResponse.json({ error: "Target Model AI wajib dipilih." }, { status: 400 });
     }
 
     const n = Math.min(Math.max(parseInt(count) || 3, 1), 20);
