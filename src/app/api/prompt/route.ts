@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { withGemini, buildModelChain, resolveGeminiKeys, isRateLimitError } from "@/lib/gemini";
 
 const MODEL_TIPS: Record<string, string> = {
+  flux: "Format FLUX.1: deskripsi photorealistic presisi tinggi bahasa Inggris, fokus pada tekstur material autentik (kayu, marmer, kaca, logam, air, kain), pencahayaan komersial f/8 seimbang tanpa blown-out highlights, komposisi still life/environment bersih, tanpa efek cat air.",
+  nanobanana: "Format Nano Banana: deskripsi visual yang sangat padat, tajam, dan fokus dalam bahasa Inggris untuk aset microstock komersial berkualitas tinggi lolos kurasi Adobe Stock. Urutkan elemen: [subjek utama tajam dengan tekstur mikro autentik], [pencahayaan komersial seimbang tanpa blown-out highlights & sudut kamera f/8], [lingkungan/background bersih berdefinisi tinggi], [palet warna natural & mood komersial], [razor-sharp focus, professional stock photography, 8k]. Pisahkan setiap elemen dengan koma.",
   midjourney: "Format Midjourney: deskripsi detail, pisahkan elemen dengan koma, sertakan cues ketajaman komersial (tack-sharp focus, f/8 aperture, authentic micro-textures, clean balanced lighting), tambahkan parameter seperti --ar 16:9 --v 6.1 --style raw di akhir.",
   firefly: "Format Adobe Firefly: kalimat deskriptif natural, spesifik tentang subjek tajam, pencahayaan studio/alami seimbang tanpa overexposure, tekstur realistis autentik, dan komposisi komersial rapi.",
   sdxl: "Format Stable Diffusion XL: keyword padat dipisah koma, tambahkan quality tags seperti (tack sharp focus:1.2), (hyperdetailed:1.1), (f/8 aperture:1.1), (masterpiece:1.2), (best quality:1.1).",
   dalle3: "Format DALL-E 3: kalimat natural deskriptif, spesifik dan detail tentang ketajaman fokus dan pencahayaan komersial, hindari efek kartun/plastik.",
   ideogram: "Format Ideogram: deskripsi natural, fokus pada ketajaman dan tekstur realistis, bisa include teks jika ada elemen tipografi.",
-  nanobanana: "Format Nano Banana: deskripsi visual yang sangat padat, tajam, dan fokus dalam bahasa Inggris untuk aset microstock komersial berkualitas tinggi lolos kurasi Adobe Stock. Urutkan elemen: [subjek utama tajam dengan tekstur mikro autentik], [pencahayaan komersial seimbang tanpa blown-out highlights & sudut kamera f/8], [lingkungan/background bersih berdefinisi tinggi], [palet warna natural & mood komersial], [razor-sharp focus, professional stock photography, 8k]. Pisahkan setiap elemen dengan koma.",
   veo: "Format Google Veo: deskripsi sinematik, sertakan gerakan kamera stabil, pencahayaan tajam, pacing, color grade, shot type.",
   runway: "Format Runway Gen-3: deskripsikan pergerakan halus, ketajaman visual, dan transisi secara sinematik.",
   pika: "Format Pika Labs: deskripsi pendek dan padat, fokus pada subjek tajam dan motion stabil.",
@@ -76,7 +77,7 @@ function extractJson(text: string): string {
   return text.match(/\[[\s\S]*\]/)?.[0] ?? text.trim();
 }
 
-function enrichNegativePrompt(existingNegative: string): string {
+function enrichNegativePrompt(existingNegative: string, noPeople: boolean = false): string {
   const coreNegatives = [
     "soft focus",
     "out of focus",
@@ -111,6 +112,25 @@ function enrichNegativePrompt(existingNegative: string): string {
     "low resolution",
   ];
 
+  if (noPeople) {
+    coreNegatives.push(
+      "person",
+      "human",
+      "people",
+      "man",
+      "woman",
+      "child",
+      "crowd",
+      "face",
+      "hands",
+      "fingers",
+      "skin",
+      "silhouette",
+      "portrait",
+      "body parts"
+    );
+  }
+
   const existingParts = (existingNegative || "")
     .split(",")
     .map((s) => s.trim())
@@ -142,6 +162,7 @@ export async function POST(req: Request) {
       seamless,
       abstrak,
       iconSet,
+      noPeople,
       selectedRatio,
     } = await req.json();
     const effectiveKeys = resolveGeminiKeys(keys);
@@ -226,7 +247,7 @@ Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
           ) => ({
             id: String(i + 1),
             text: p.text,
-            negative: enrichNegativePrompt(p.negative),
+            negative: enrichNegativePrompt(p.negative, Boolean(noPeople)),
             aspectRatio: "1:1",
             aspectRatioReason:
               p.aspectRatioReason ||
@@ -288,9 +309,17 @@ PEDOMAN KEPATUHAN & STANDAR KUALITAS TEKNIS ADOBE STOCK (ANTI-REJECTION RULES):
    - Jangan buat variasi yang hampir identik dari satu prompt yang sama (kebijakan anti-spam Adobe Stock).
    - Setiap prompt dari ${n} variasi ini HARUS memiliki komposisi, subjek unik, angle kamera, dan suasana yang berbeda secara nyata.`;
 
+    const noPeopleRules = noPeople
+      ? `
+ATURAN BEBAS UNSUR MANUSIA (ZERO HUMANS / NON-HUMAN FOCUS):
+- DILARANG KERAS menyertakan orang, manusia, wajah, siluet, tangan, jari, kulit, atau bagian tubuh manusia mana pun.
+- Fokus 100% pada benda mati, alam/botanikal, arsitektur interior kosong tanpa orang, mockup produk, makanan/minuman, tekstur, atau 3D abstract object.
+- Gambar harus sepenuhnya bebas dari kebutuhan Model Release.`
+      : "";
+
     const prompt = isVideoMode
       ? `Kamu adalah ahli prompt engineering untuk video microstock. Buat TEPAT ${n} variasi prompt video untuk model AI ${targetModel || "video AI"}.
-${seamlessRules}${abstrakRules}
+${seamlessRules}${abstrakRules}${noPeopleRules}
 
 Panduan format: ${modelTip}
 ${themes ? `\nStyle/tema tambahan: ${themes}` : ""}${style ? `\nStyle preset: ${style}` : ""}${brief ? `\nBrief: ${brief}` : ""}
@@ -316,7 +345,7 @@ Input:
 - Brief: ${brief || "-"}
 
 Panduan format: ${modelTip}
-${adobeComplianceRules}
+${adobeComplianceRules}${noPeopleRules}
 
 ATURAN ASPEK RASIO PASAR:
 ${imageRatioRules}
@@ -367,7 +396,7 @@ Kembalikan HANYA array JSON valid dengan TEPAT ${n} item, tanpa teks lain:
         return {
           id: String(i + 1),
           text: p.text,
-          negative: enrichNegativePrompt(p.negative),
+          negative: enrichNegativePrompt(p.negative, Boolean(noPeople)),
           aspectRatio: finalRatio,
           aspectRatioReason: p.aspectRatioReason?.trim() || fallbackReason,
         };

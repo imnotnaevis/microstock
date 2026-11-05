@@ -35,6 +35,7 @@ import { QuotaAlert } from "@/components/ui/quota-alert";
 const modelsByType: Record<string, { value: string; label: string }[]> = {
   image: [
     { value: "nanobanana", label: "Nano Banana" },
+    { value: "flux", label: "FLUX.1" },
     { value: "midjourney", label: "Midjourney" },
     { value: "firefly", label: "Adobe Firefly" },
     { value: "sdxl", label: "Stable Diffusion XL" },
@@ -50,14 +51,17 @@ const modelsByType: Record<string, { value: string; label: string }[]> = {
   ],
   vector: [
     { value: "nanobanana", label: "Nano Banana" },
+    { value: "flux", label: "FLUX.1" },
     { value: "firefly", label: "Adobe Firefly (Vector)" },
     { value: "midjourney", label: "Midjourney + Vectorize" },
     { value: "sdxl", label: "SDXL + SVG" },
   ],
   photo: [
     { value: "nanobanana", label: "Nano Banana" },
+    { value: "flux", label: "FLUX.1" },
     { value: "firefly", label: "Adobe Firefly" },
     { value: "midjourney", label: "Midjourney" },
+    { value: "sdxl", label: "Stable Diffusion XL" },
     { value: "dalle3", label: "DALL·E 3" },
   ],
 };
@@ -169,6 +173,7 @@ function PromptGeneratorContent() {
     seamless,
     abstrak,
     iconSet,
+    noPeople,
     contextPreview,
   } = promptForm;
 
@@ -184,6 +189,7 @@ function PromptGeneratorContent() {
   const setSeamless = (v: boolean) => updatePromptForm({ seamless: v });
   const setAbstrak = (v: boolean) => updatePromptForm({ abstrak: v });
   const setIconSet = (v: boolean) => updatePromptForm({ iconSet: v });
+  const setNoPeople = (v: boolean) => updatePromptForm({ noPeople: v });
   const setContextPreview = (v: string | null) => updatePromptForm({ contextPreview: v });
 
   const videoModeOn = assetType === "video" && (seamless || abstrak);
@@ -690,18 +696,34 @@ function PromptGeneratorContent() {
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <Label>Jumlah Variasi (Batch)</Label>
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={iconSet}
-                      onChange={(e) => setIconSet(e.target.checked)}
-                      className="h-3.5 w-3.5 accent-primary cursor-pointer"
-                    />
-                    Icon Set
-                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-foreground transition-colors hover:text-primary">
+                      <input
+                        type="checkbox"
+                        checked={noPeople}
+                        onChange={(e) => setNoPeople(e.target.checked)}
+                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                      />
+                      <span>Tanpa Manusia (No People)</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={iconSet}
+                        onChange={(e) => setIconSet(e.target.checked)}
+                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                      />
+                      <span>Icon Set</span>
+                    </label>
+                  </div>
                 </div>
+                {noPeople && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✓ Mode Non-Human aktif: 100% bebas Model Release & zero resiko cacat anatomi.
+                  </p>
+                )}
                 <Select
                   value={batchCount}
                   onValueChange={(v) => v && setBatchCount(v)}

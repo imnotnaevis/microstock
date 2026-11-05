@@ -27,6 +27,7 @@ export type PromptFormState = {
   seamless: boolean;
   abstrak: boolean;
   iconSet: boolean;
+  noPeople: boolean;
   contextPreview: string | null;
 };
 
@@ -110,6 +111,7 @@ const defaultPromptForm: PromptFormState = {
   seamless: false,
   abstrak: false,
   iconSet: false,
+  noPeople: true,
   contextPreview: null,
 };
 
@@ -254,6 +256,7 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
             seamless: activeForm.seamless,
             abstrak: activeForm.abstrak,
             iconSet: activeForm.iconSet,
+            noPeople: activeForm.noPeople,
             selectedRatio: activeForm.selectedRatio,
           }),
         });
