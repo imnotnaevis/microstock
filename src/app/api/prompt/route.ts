@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { withGemini, buildModelChain, resolveGeminiKeys, isRateLimitError } from "@/lib/gemini";
 
 const MODEL_TIPS: Record<string, string> = {
-  midjourney: "Format Midjourney: deskripsi detail, pisahkan elemen dengan koma, tambahkan parameter seperti --ar 16:9 --v 6.1 --style raw di akhir.",
-  firefly: "Format Adobe Firefly: kalimat deskriptif natural, spesifik tentang subjek, pencahayaan, mood, dan komposisi.",
-  sdxl: "Format Stable Diffusion XL: keyword padat dipisah koma, tambahkan quality tags seperti (masterpiece:1.2), (best quality:1.1).",
-  dalle3: "Format DALL-E 3: kalimat natural deskriptif, spesifik dan detail, tidak perlu parameter teknis.",
-  ideogram: "Format Ideogram: deskripsi natural, bisa include teks jika ada elemen tipografi.",
-  nanobanana: "Format Nano Banana: deskripsi visual yang sangat padat dan fokus dalam bahasa Inggris untuk aset microstock komersial berkualitas tinggi. Urutkan elemen: [subjek utama detail dan tajam], [pencahayaan & sudut kamera], [lingkungan/background bersih], [palet warna dominan & mood], [estetika commercial stock photography/vector, 8k]. Pisahkan setiap elemen dengan koma.",
-  veo: "Format Google Veo: deskripsi sinematik, sertakan gerakan kamera, pacing, color grade, shot type.",
-  runway: "Format Runway Gen-3: deskripsikan pergerakan, suasana, dan transisi visual secara sinematik.",
-  pika: "Format Pika Labs: deskripsi pendek dan padat, fokus pada subjek dan motion.",
-  sora: "Format Sora: kalimat sinematik natural, deskripsikan adegan, pencahayaan, dan gerakan.",
-  kling: "Format Kling AI: deskripsi natural, sertakan elemen temporal dan gerakan.",
+  midjourney: "Format Midjourney: deskripsi detail, pisahkan elemen dengan koma, sertakan cues ketajaman komersial (tack-sharp focus, f/8 aperture, authentic micro-textures, clean balanced lighting), tambahkan parameter seperti --ar 16:9 --v 6.1 --style raw di akhir.",
+  firefly: "Format Adobe Firefly: kalimat deskriptif natural, spesifik tentang subjek tajam, pencahayaan studio/alami seimbang tanpa overexposure, tekstur realistis autentik, dan komposisi komersial rapi.",
+  sdxl: "Format Stable Diffusion XL: keyword padat dipisah koma, tambahkan quality tags seperti (tack sharp focus:1.2), (hyperdetailed:1.1), (f/8 aperture:1.1), (masterpiece:1.2), (best quality:1.1).",
+  dalle3: "Format DALL-E 3: kalimat natural deskriptif, spesifik dan detail tentang ketajaman fokus dan pencahayaan komersial, hindari efek kartun/plastik.",
+  ideogram: "Format Ideogram: deskripsi natural, fokus pada ketajaman dan tekstur realistis, bisa include teks jika ada elemen tipografi.",
+  nanobanana: "Format Nano Banana: deskripsi visual yang sangat padat, tajam, dan fokus dalam bahasa Inggris untuk aset microstock komersial berkualitas tinggi lolos kurasi Adobe Stock. Urutkan elemen: [subjek utama tajam dengan tekstur mikro autentik], [pencahayaan komersial seimbang tanpa blown-out highlights & sudut kamera f/8], [lingkungan/background bersih berdefinisi tinggi], [palet warna natural & mood komersial], [razor-sharp focus, professional stock photography, 8k]. Pisahkan setiap elemen dengan koma.",
+  veo: "Format Google Veo: deskripsi sinematik, sertakan gerakan kamera stabil, pencahayaan tajam, pacing, color grade, shot type.",
+  runway: "Format Runway Gen-3: deskripsikan pergerakan halus, ketajaman visual, dan transisi secara sinematik.",
+  pika: "Format Pika Labs: deskripsi pendek dan padat, fokus pada subjek tajam dan motion stabil.",
+  sora: "Format Sora: kalimat sinematik natural, deskripsikan adegan tajam, pencahayaan seimbang, dan gerakan.",
+  kling: "Format Kling AI: deskripsi natural, sertakan elemen temporal, ketajaman, dan gerakan stabil.",
 };
 
 export const MARKET_ASPECT_RATIO_INFO: Record<
@@ -74,6 +74,57 @@ function extractJson(text: string): string {
   const fence = text.match(/```json\s*([\s\S]*?)```/);
   if (fence) return fence[1].trim();
   return text.match(/\[[\s\S]*\]/)?.[0] ?? text.trim();
+}
+
+function enrichNegativePrompt(existingNegative: string): string {
+  const coreNegatives = [
+    "soft focus",
+    "out of focus",
+    "blurry",
+    "motion blur",
+    "oversharpened",
+    "plastic skin",
+    "doll-like",
+    "smooth airbrushed skin",
+    "watercolor look",
+    "washed out colors",
+    "overexposed highlights",
+    "blown-out whites",
+    "underexposed crushed shadows",
+    "chromatic aberration",
+    "digital noise",
+    "grain",
+    "compression artifacts",
+    "jpeg artifacts",
+    "bad anatomy",
+    "deformed hands",
+    "extra fingers",
+    "missing fingers",
+    "mutated limbs",
+    "malformed body",
+    "asymmetrical eyes",
+    "double irises",
+    "text",
+    "watermark",
+    "signature",
+    "logo",
+    "low resolution",
+  ];
+
+  const existingParts = (existingNegative || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const set = new Set<string>();
+  for (const part of existingParts) {
+    set.add(part.toLowerCase());
+  }
+  for (const core of coreNegatives) {
+    set.add(core);
+  }
+
+  return Array.from(set).join(", ");
 }
 
 export async function POST(req: Request) {
@@ -175,7 +226,7 @@ Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
           ) => ({
             id: String(i + 1),
             text: p.text,
-            negative: p.negative,
+            negative: enrichNegativePrompt(p.negative),
             aspectRatio: "1:1",
             aspectRatioReason:
               p.aspectRatioReason ||
@@ -216,18 +267,24 @@ ABSTRACT VISUAL — WAJIB:
 - Berikan "aspectRatioReason" singkat dalam bahasa Indonesia mengapa rasio ini direkomendasikan (mis: "Paling dicari untuk Website Hero Banner & Display Ads" atau "Standar fotografi komersial Shutterstock/Adobe Stock" atau "Populer untuk Poster & Cover Cetak").`;
 
     const adobeComplianceRules = `
-PEDOMAN KEPATUHAN GENERATIVE AI (ADOBE STOCK & MICROSTOCK STANDARDS):
-1. DILARANG KERAS menyertakan:
+PEDOMAN KEPATUHAN & STANDAR KUALITAS TEKNIS ADOBE STOCK (ANTI-REJECTION RULES):
+1. ATURAN KUALITAS TEKNIS (MENCEGAH PENOLAKAN "QUALITY & TECHNICAL ISSUES"):
+   - Penolakan paling umum kurator Adobe Stock adalah: "Exposure issues, soft focus, excessive filtering or artifacts/noise".
+   - Wajib instruksikan gambar dengan:
+     * KETAJAMAN TINGGI (Razor-sharp focus, tack-sharp focal details, f/8 aperture depth of field).
+     * TEKSTUR REALISTIS (Authentic micro-textures, natural skin pores, realistic fabric/surface detail — HINDARI kulit plastik atau efek cat air).
+     * PENCAHAYAAN SEIMBANG (Balanced commercial dynamic range — TIDAK overexposed putih silau, TIDAK underexposed hitam pekat).
+   - Negative prompt WAJIB sangat lengkap menyertakan penangkal penolakan teknis Adobe Stock.
+2. DILARANG KERAS menyertakan:
    - Nama artis/seniman (misal: Greg Rutkowski, Artgerm, dll)
    - Nama orang nyata atau tokoh terkenal (politisi, selebriti, dll)
    - Karakter fiksi berhak cipta (Disney, Marvel, Anime terkenal, dll)
    - Nama agensi/lembaga pemerintah (FBI, CIA, NASA, Kepolisian, dll)
    - Merek dagang / logo / properti intelektual pihak ketiga (Apple, Nike, dll)
    - Narasi yang mengklaim peristiwa berita aktual/nyata (editorial news deception)
-2. KUALITAS ANATOMI & DETAIL:
-   - Anatomi manusia dan hewan harus sempurna secara biologis: tangan 5 jari yang rapi, mata simetris, proporsi tubuh alami, tanpa mutasi.
-   - Negative prompt WAJIB menyertakan: bad anatomy, deformed fingers, extra limbs, mutated hands, malformed limbs, distorted face, trademark, logo, copyrighted character, watermarks, text, blurry, duplicate.
-3. ANTI-SPAM (KEUNIKAN KOLEKSI):
+3. KUALITAS ANATOMI & DETAIL:
+   - Anatomi manusia dan hewan harus sempurna secara biologis: tangan 5 jari yang rapi, mata simetris, pupil bulat tunggal, proporsi tubuh alami, tanpa mutasi.
+4. ANTI-SPAM (KEUNIKAN KOLEKSI):
    - Jangan buat variasi yang hampir identik dari satu prompt yang sama (kebijakan anti-spam Adobe Stock).
    - Setiap prompt dari ${n} variasi ini HARUS memiliki komposisi, subjek unik, angle kamera, dan suasana yang berbeda secara nyata.`;
 
@@ -310,7 +367,7 @@ Kembalikan HANYA array JSON valid dengan TEPAT ${n} item, tanpa teks lain:
         return {
           id: String(i + 1),
           text: p.text,
-          negative: p.negative,
+          negative: enrichNegativePrompt(p.negative),
           aspectRatio: finalRatio,
           aspectRatioReason: p.aspectRatioReason?.trim() || fallbackReason,
         };
