@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tags,
   Sparkles,
@@ -103,27 +104,25 @@ function SeoResultView({ result, rules, onCopy }: {
             Sesuai pedoman resmi Adobe Stock (Updated 2026), centang opsi berikut di portal kontributor sebelum submit:
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="flex items-start gap-2 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
-              <input
-                type="checkbox"
-                checked
-                readOnly
-                className="mt-0.5 h-3.5 w-3.5 accent-primary cursor-default"
+            <div className="flex items-start gap-2.5 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
+              <Checkbox
+                checked={true}
+                disabled
+                className="mt-0.5 data-checked:bg-primary data-checked:border-primary"
               />
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0">
                 <span className="font-semibold text-foreground">Created using generative AI tools</span>
                 <p className="text-[10px] text-muted-foreground">Wajib dicentang untuk semua aset buatan AI.</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-2 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
-              <input
-                type="checkbox"
-                checked={result.adobeStockCompliance?.hasFictionalPeopleOrProperty ?? false}
-                readOnly
-                className="mt-0.5 h-3.5 w-3.5 accent-primary cursor-default"
+            <div className="flex items-start gap-2.5 p-2 rounded-md bg-background border border-amber-200/60 dark:border-amber-900/40">
+              <Checkbox
+                checked={Boolean(result.adobeStockCompliance?.hasFictionalPeopleOrProperty)}
+                disabled
+                className="mt-0.5"
               />
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0">
                 <span className="font-semibold text-foreground">People and Property are fictional</span>
                 <p className="text-[10px] text-muted-foreground">
                   {result.adobeStockCompliance?.hasFictionalPeopleOrProperty

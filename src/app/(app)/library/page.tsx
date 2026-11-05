@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -329,84 +330,84 @@ export default function LibraryPage() {
           </Card>
         </div>
 
-        {/* Adobe Stock Quality Troubleshooting Card */}
+        {/* Adobe Stock Quality Troubleshooting Alert */}
         {(filterStatus === "rejected" || countRejected > 0) && (
-          <Card className="border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2 font-semibold text-rose-900 dark:text-rose-200 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                  <span>Bedah Penolakan Adobe Stock: "Quality and Technical Issues"</span>
+          <Alert className="border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 dark:border-rose-900/40 p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap w-full">
+              <div className="flex items-center gap-2 font-semibold text-rose-900 dark:text-rose-200 text-sm">
+                <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <AlertTitle className="m-0 font-semibold text-rose-900 dark:text-rose-200">
+                  Bedah Penolakan Adobe Stock: "Quality and Technical Issues"
+                </AlertTitle>
+              </div>
+              <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-800 dark:text-rose-300 bg-background/80">
+                Panduan Lolos Kurasi
+              </Badge>
+            </div>
+
+            <AlertDescription className="text-xs text-rose-900/90 dark:text-rose-200/90 leading-relaxed block m-0">
+              Pesan ini adalah penolakan standar paling sering untuk aset AI di Adobe Stock. Kurator manusia dan AI inspector memeriksa gambar pada perbesaran <strong>100% (pixel zoom)</strong>.
+            </AlertDescription>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs w-full">
+              <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>🔍 1. Soft Focus (Kurang Tajam di 100%)</span>
                 </div>
-                <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-800 dark:text-rose-300 bg-background/80">
-                  Panduan Lolos Kurasi
-                </Badge>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Gambar AI sering terlihat tajam di thumbnail, tetapi saat kurator zoom 100%, detail mata, rambut, dan tepi objek terlihat kabur / seperti cat air. <em>Solusi:</em> Wajib periksa di zoom 100% sebelum submit.
+                </p>
               </div>
 
-              <p className="text-xs text-rose-900/90 dark:text-rose-200/90 leading-relaxed">
-                Pesan ini adalah penolakan standar paling sering untuk aset AI di Adobe Stock. Kurator manusia dan AI inspector memeriksa gambar pada perbesaran <strong>100% (pixel zoom)</strong>.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span>🔍 1. Soft Focus (Kurang Tajam di 100%)</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Gambar AI sering terlihat tajam di thumbnail, tetapi saat kurator zoom 100%, detail mata, rambut, dan tepi objek terlihat kabur / seperti cat air. <em>Solusi:</em> Wajib periksa di zoom 100% sebelum submit.
-                  </p>
+              <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>⚠️ 2. AI Glitch & Anatomy Artifacts</span>
                 </div>
-
-                <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span>⚠️ 2. AI Glitch & Anatomy Artifacts</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Jari tangan melebur/berlebih, pupil mata ganda/tak simetris, atau garis bangunan bengkok. <em>Solusi:</em> Gunakan inpainting / retouching cepat di Photoshop atau hapus elemen cacat.
-                  </p>
-                </div>
-
-                <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span>📐 3. Upscaling & Pixel Noise</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Resolusi asli AI (1024px) dipaksa besar dengan upscaler biasa sehingga pecah/bergradasi kasar. <em>Solusi:</em> Gunakan AI Upscaler khusus (Upscayl gratis / Topaz / Magnific) ke minimal 4000px (4MP+).
-                  </p>
-                </div>
-
-                <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span>☀️ 4. Exposure & Excessive Filtering</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Kulit plastik boneka (airbrushed) tanpa tekstur pori, atau area putih terlalu silau tanpa detail (*blown-out highlights*). <em>Solusi:</em> Pakai Negative Prompt anti-plastic skin yang sudah di-update di app kita.
-                  </p>
-                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Jari tangan melebur/berlebih, pupil mata ganda/tak simetris, atau garis bangunan bengkok. <em>Solusi:</em> Gunakan inpainting / retouching cepat di Photoshop atau hapus elemen cacat.
+                </p>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 border-t border-rose-200/60 dark:border-rose-900/30 text-xs flex-wrap">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs bg-background hover:bg-rose-50 border-rose-300 text-rose-900 dark:text-rose-200 font-medium cursor-pointer"
-                  onClick={() => router.push("/prompt")}
-                >
-                  <Wand2 className="h-3.5 w-3.5 mr-1" />
-                  Buka Prompt Studio (Sudah Terpasang Anti-Quality-Issues)
-                </Button>
-                <a
-                  href="https://helpx.adobe.com/stock/contributor/help/quality-and-technical-issues.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs text-rose-800 dark:text-rose-300")}
-                >
-                  <span>Baca Dokumentasi Resmi Adobe</span>
-                  <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
+              <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>📐 3. Upscaling & Pixel Noise</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Resolusi asli AI (1024px) dipaksa besar dengan upscaler biasa sehingga pecah/bergradasi kasar. <em>Solusi:</em> Gunakan AI Upscaler khusus (Upscayl gratis / Topaz / Magnific) ke minimal 4000px (4MP+).
+                </p>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="p-2.5 rounded-md bg-background/90 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>☀️ 4. Exposure & Excessive Filtering</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Kulit plastik boneka (airbrushed) tanpa tekstur pori, atau area putih terlalu silau tanpa detail (*blown-out highlights*). <em>Solusi:</em> Pakai Negative Prompt anti-plastic skin yang sudah di-update di app kita.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-rose-200/60 dark:border-rose-900/30 text-xs flex-wrap w-full">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs bg-background hover:bg-rose-50 border-rose-300 text-rose-900 dark:text-rose-200 font-medium cursor-pointer"
+                onClick={() => router.push("/prompt")}
+              >
+                <Wand2 className="h-3.5 w-3.5 mr-1" />
+                Buka Prompt Studio (Sudah Terpasang Anti-Quality-Issues)
+              </Button>
+              <a
+                href="https://helpx.adobe.com/stock/contributor/help/quality-and-technical-issues.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs text-rose-800 dark:text-rose-300")}
+              >
+                <span>Baca Dokumentasi Resmi Adobe</span>
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </a>
+            </div>
+          </Alert>
         )}
 
         {/* Projects */}

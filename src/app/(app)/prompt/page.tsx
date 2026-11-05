@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Wand2,
   Sparkles,
@@ -364,29 +367,31 @@ function PromptGeneratorContent() {
               )}
 
               {lastContext && (
-                <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
-                  <span className="text-blue-700">
-                    Hasil analisis <span className="font-medium">{lastContext.source}</span> tersedia
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs text-blue-700 hover:text-blue-800 px-2"
-                      onClick={handleUseLastContext}
-                    >
-                      Gunakan
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-blue-400 hover:text-blue-600"
-                      onClick={() => setLastContext(null)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                <Alert className="border-blue-200 bg-blue-50/70 text-blue-900 py-2 dark:bg-blue-950/20 dark:border-blue-900/50">
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <AlertDescription className="text-xs text-blue-700 dark:text-blue-300 m-0">
+                      Hasil analisis <span className="font-semibold">{lastContext.source}</span> tersedia
+                    </AlertDescription>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="h-6 text-xs text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 bg-background hover:bg-blue-100"
+                        onClick={handleUseLastContext}
+                      >
+                        Gunakan
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
+                        onClick={() => setLastContext(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </Alert>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -619,33 +624,46 @@ function PromptGeneratorContent() {
               </div>
 
               {assetType === "video" && (
-                <div className="space-y-1.5">
-                  <Label>Mode Khusus Video</Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSeamless(!seamless)}
-                      className={cn(
-                        "flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
-                        seamless
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-input bg-background hover:bg-muted"
-                      )}
-                    >
-                      Seamless Loop
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAbstrak(!abstrak)}
-                      className={cn(
-                        "flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
-                        abstrak
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-input bg-background hover:bg-muted"
-                      )}
-                    >
-                      Abstrak
-                    </button>
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-2.5">
+                  <Label className="text-xs font-semibold">Mode Khusus Video</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-background border shadow-xs">
+                      <div className="space-y-0.5">
+                        <Label
+                          htmlFor="switch-seamless"
+                          className="text-xs font-medium cursor-pointer"
+                        >
+                          Seamless Loop
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          Loop kontinu tanpa jeda/cut
+                        </p>
+                      </div>
+                      <Switch
+                        id="switch-seamless"
+                        checked={seamless}
+                        onCheckedChange={(checked) => setSeamless(checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-background border shadow-xs">
+                      <div className="space-y-0.5">
+                        <Label
+                          htmlFor="switch-abstrak"
+                          className="text-xs font-medium cursor-pointer"
+                        >
+                          Visual Abstrak
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          Fluid simulation, gradien & partikel
+                        </p>
+                      </div>
+                      <Switch
+                        id="switch-abstrak"
+                        checked={abstrak}
+                        onCheckedChange={(checked) => setAbstrak(checked)}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -695,47 +713,66 @@ function PromptGeneratorContent() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <Label>Jumlah Variasi (Batch)</Label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-foreground transition-colors hover:text-primary">
-                      <input
-                        type="checkbox"
-                        checked={noPeople}
-                        onChange={(e) => setNoPeople(e.target.checked)}
-                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
-                      />
-                      <span>Tanpa Manusia (No People)</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={iconSet}
-                        onChange={(e) => setIconSet(e.target.checked)}
-                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
-                      />
-                      <span>Icon Set</span>
-                    </label>
+              {/* Opsi Khusus Microstock (Tanpa Manusia & Icon Set) */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Mode Kurasi & Format</Label>
+                  {noPeople && (
+                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-emerald-300 text-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800">
+                      ✓ Zero Model Release
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-background border shadow-xs">
+                    <div className="space-y-0.5">
+                      <Label
+                        htmlFor="switch-no-people"
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        Tanpa Manusia
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        Fokus objek & bebas cacat anatomi
+                      </p>
+                    </div>
+                    <Switch
+                      id="switch-no-people"
+                      checked={noPeople}
+                      onCheckedChange={(checked) => setNoPeople(checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-background border shadow-xs">
+                    <div className="space-y-0.5">
+                      <Label
+                        htmlFor="switch-icon-set"
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        Icon Set (12 Icons)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        Grid 4x3 pada kanvas persegi 1:1
+                      </p>
+                    </div>
+                    <Switch
+                      id="switch-icon-set"
+                      checked={iconSet}
+                      onCheckedChange={(checked) => setIconSet(checked)}
+                    />
                   </div>
                 </div>
-                {noPeople && (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ Mode Non-Human aktif: 100% bebas Model Release & zero resiko cacat anatomi.
-                  </p>
-                )}
+              </div>
+
+              {/* Jumlah Variasi */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Jumlah Variasi Prompt (Batch)</Label>
                 <Select
                   value={batchCount}
                   onValueChange={(v) => v && setBatchCount(v)}
-                  items={{
-                    "1": "1 variasi",
-                    "3": "3 variasi",
-                    "5": "5 variasi",
-                    "10": "10 variasi",
-                    "20": "20 variasi",
-                  }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs w-full bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
